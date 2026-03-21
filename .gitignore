@@ -1,6 +1,3 @@
-# 备份快照 (含敏感信息)
-setup/backup-snapshot/
-
 # AgenticOS 项目元数据
 .context/
 .project.yaml
@@ -10,3 +7,6 @@ tasks/
 
 # macOS 缓存
 .DS_Store
+
+# 本地备份
+setup/backup-snapshot/

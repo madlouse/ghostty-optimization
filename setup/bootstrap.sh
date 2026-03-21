@@ -1,15 +1,16 @@
 #!/usr/bin/env bash
 # ============================================================
 # Ghostty + Cmux + Zed 环境初始化脚本
-# AI 编程终端栈一键部署
+# 部署当前机器的真实配置到新环境
 # 适用于: macOS
 # ============================================================
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+BACKUP_DIR="$SCRIPT_DIR/backup"
 CONFIG_DIR="$SCRIPT_DIR/configs"
-BACKUP_DIR="$HOME/.config-backup/ghostty-opt-$(date +%Y%m%d-%H%M%S)"
+BACKUP_USER="$HOME/.config-backup/ghostty-opt-$(date +%Y%m%d-%H%M%S)"
 
 # 颜色
 GREEN='\033[0;32m'
@@ -33,7 +34,7 @@ check_prerequisites() {
     step "检查前置条件"
 
     if [[ "$(uname)" != "Darwin" ]]; then
-        error "此脚本仅支持 macOS（Cmux 为 macOS 原生应用）"
+        error "此脚本仅支持 macOS"
         exit 1
     fi
 
@@ -48,66 +49,39 @@ check_prerequisites() {
     else
         info "Homebrew ✓"
     fi
+
+    # 检查备份文件是否存在
+    if [[ ! -f "$BACKUP_DIR/Brewfile" ]]; then
+        error "Brewfile 不存在: $BACKUP_DIR/Brewfile"
+        exit 1
+    fi
+    if [[ ! -f "$BACKUP_DIR/ghostty-config" ]]; then
+        error "ghostty-config 不存在: $BACKUP_DIR/ghostty-config"
+        exit 1
+    fi
 }
 
 # ============================================================
-# 2. 安装工具
+# 2. 安装工具 (通过 Brewfile)
 # ============================================================
-install_packages() {
-    step "安装核心工具"
+install_via_brewfile() {
+    step "安装工具 (通过 Brewfile)"
 
-    # --- Cmux ---
-    if command -v cmux &>/dev/null || ls /Applications/cmux.app &>/dev/null 2>&1; then
-        info "Cmux ✓"
-    else
-        if $DRY_RUN; then
-            warn "[dry-run] 将安装 Cmux"
-        else
-            warn "安装 Cmux ..."
-            brew tap manaflow-ai/cmux 2>/dev/null || true
-            brew install --cask cmux
-            info "Cmux 安装完成"
-        fi
+    if $DRY_RUN; then
+        warn "[dry-run] 将安装: brew bundle install --file=$BACKUP_DIR/Brewfile"
+        return
     fi
 
-    # --- Zed ---
-    if command -v zed &>/dev/null || ls /Applications/Zed.app &>/dev/null 2>&1; then
-        info "Zed ✓"
-    else
-        if $DRY_RUN; then
-            warn "[dry-run] 将安装 Zed"
-        else
-            warn "安装 Zed ..."
-            brew install --cask zed
-            info "Zed 安装完成"
-        fi
+    # Tap Cmux
+    if ! brew tap | grep -q "manaflow-ai/cmux"; then
+        brew tap manaflow-ai/cmux
     fi
 
-    # --- 辅助工具 ---
-    local formulae=(starship fastfetch btop zsh-syntax-highlighting zsh-autosuggestions)
-    for pkg in "${formulae[@]}"; do
-        if brew list "$pkg" &>/dev/null 2>&1; then
-            info "$pkg ✓"
-        else
-            if $DRY_RUN; then
-                warn "[dry-run] 将安装 $pkg"
-            else
-                brew install "$pkg"
-                info "$pkg ✓"
-            fi
-        fi
-    done
-
-    # --- Nerd Font ---
-    if fc-list 2>/dev/null | grep -qi "JetBrainsMono Nerd" || ls ~/Library/Fonts/*JetBrainsMono*Nerd* &>/dev/null 2>&1; then
-        info "JetBrainsMono Nerd Font ✓"
+    # 安装全部包
+    if brew bundle install --file="$BACKUP_DIR/Brewfile" --no-lock 2>&1 | tail -20; then
+        info "Brewfile 安装完成"
     else
-        if $DRY_RUN; then
-            warn "[dry-run] 将安装 font-jetbrains-mono-nerd-font"
-        else
-            brew install --cask font-jetbrains-mono-nerd-font
-            info "JetBrainsMono Nerd Font ✓"
-        fi
+        warn "部分包安装失败，继续部署配置..."
     fi
 }
 
@@ -117,155 +91,167 @@ install_packages() {
 backup_if_exists() {
     local src="$1" name="$2"
     if [[ -f "$src" ]]; then
-        mkdir -p "$BACKUP_DIR"
-        cp "$src" "$BACKUP_DIR/$name"
-        warn "已备份: $src → $BACKUP_DIR/$name"
+        mkdir -p "$BACKUP_USER"
+        cp "$src" "$BACKUP_USER/$name"
+        warn "已备份: $src → $BACKUP_USER/$name"
     fi
 }
 
-deploy_ghostty_config() {
-    step "Ghostty 配置 (Cmux 共用)"
-    local target="$HOME/.config/ghostty/config"
+deploy_all() {
+    step "部署全部配置"
 
-    if [[ -f "$target" ]]; then
-        info "Ghostty 配置已存在，保留不覆盖"
-        # 检查 Cmux 兼容性
-        if grep -q "copy-on-select = clipboard" "$target"; then
-            warn "建议: copy-on-select 改为 false（避免与 Cmux 选择冲突）"
-        fi
-    else
-        if $DRY_RUN; then
-            warn "[dry-run] 将部署 Ghostty 配置"
-        else
-            mkdir -p "$(dirname "$target")"
-            cp "$CONFIG_DIR/ghostty-config" "$target"
-            info "Ghostty 配置已部署"
-        fi
+    # --- Ghostty / Cmux 配置 ---
+    local ghostty_target="$HOME/.config/ghostty/config"
+    if [[ -f "$ghostty_target" ]]; then
+        backup_if_exists "$ghostty_target" "ghostty-config.bak"
     fi
-}
-
-deploy_zed_config() {
-    step "Zed 编辑器配置"
-    local target="$HOME/.config/zed/settings.json"
-
-    if [[ -f "$target" ]]; then
-        info "Zed 配置已存在，保留不覆盖"
+    if $DRY_RUN; then
+        warn "[dry-run] 将部署 Ghostty 配置"
     else
-        if $DRY_RUN; then
-            warn "[dry-run] 将部署 Zed 基础配置"
-        else
-            mkdir -p "$(dirname "$target")"
-            cp "$CONFIG_DIR/zed-settings.json" "$target"
-            info "Zed 配置已部署"
-        fi
+        mkdir -p "$(dirname "$ghostty_target")"
+        cp "$BACKUP_DIR/ghostty-config" "$ghostty_target"
+        info "Ghostty 配置已部署 ✓"
     fi
-}
 
-deploy_cmux_hooks() {
-    step "Cmux Claude Code Hooks"
-    local hooks_dir="$HOME/.claude/hooks"
-
-    if [[ -d "$hooks_dir" ]] && ls "$hooks_dir"/*cmux* &>/dev/null 2>&1; then
-        info "Cmux hooks 已存在，跳过"
+    # --- Starship 配置 ---
+    local starship_target="$HOME/.config/starship.toml"
+    if [[ -f "$starship_target" ]]; then
+        backup_if_exists "$starship_target" "starship.toml.bak"
+    fi
+    if $DRY_RUN; then
+        warn "[dry-run] 将部署 Starship 配置"
     else
-        if $DRY_RUN; then
-            warn "[dry-run] 将部署 Cmux notification hooks"
-        else
-            mkdir -p "$hooks_dir"
-            cp "$CONFIG_DIR/cmux-notify-hook.sh" "$hooks_dir/"
-            chmod +x "$hooks_dir/cmux-notify-hook.sh"
-            info "Cmux hooks 已部署"
-            warn "需在 Claude Code settings.json 中配置 hook 触发"
-        fi
+        mkdir -p "$(dirname "$starship_target")"
+        cp "$BACKUP_DIR/starship.toml" "$starship_target"
+        info "Starship 配置已部署 ✓"
     fi
+
+    # --- .zprofile ---
+    if [[ -f "$HOME/.zprofile" ]]; then
+        backup_if_exists "$HOME/.zprofile" "zprofile.bak"
+    fi
+    if $DRY_RUN; then
+        warn "[dry-run] 将部署 .zprofile"
+    else
+        cp "$BACKUP_DIR/zprofile" "$HOME/.zprofile"
+        info ".zprofile 已部署 ✓"
+    fi
+
+    # --- Zed 配置 ---
+    local zed_target="$HOME/.config/zed/settings.json"
+    if [[ -f "$zed_target" ]]; then
+        backup_if_exists "$zed_target" "zed-settings.json.bak"
+    fi
+    if $DRY_RUN; then
+        warn "[dry-run] 将部署 Zed 配置"
+    else
+        mkdir -p "$(dirname "$zed_target")"
+        cp "$BACKUP_DIR/zed/settings.json" "$zed_target"
+        info "Zed 配置已部署 ✓"
+    fi
+
+    # --- Zsh Completions ---
+    if $DRY_RUN; then
+        warn "[dry-run] 将部署 Zsh Completions"
+    else
+        mkdir -p "$HOME/.zsh/completions"
+        cp "$BACKUP_DIR/zsh-completions/_opencli" "$HOME/.zsh/completions/"
+        info "Zsh Completions 已部署 ✓"
+    fi
+
+    # --- Claude Code Hooks ---
+    if $DRY_RUN; then
+        warn "[dry-run] 将部署 Claude Code Hooks"
+    else
+        mkdir -p "$HOME/.claude/hooks"
+        cp "$BACKUP_DIR/claude-hooks/cmux-notify-hook.sh" "$HOME/.claude/hooks/"
+        chmod +x "$HOME/.claude/hooks/cmux-notify-hook.sh"
+        info "Claude Code Hooks 已部署 ✓"
+    fi
+
+    # --- Shell 集成 (.zshrc) ---
+    deploy_shell_integration
 }
 
 deploy_shell_integration() {
-    step "Shell 集成 (Cmux + Zed)"
     local zshrc="$HOME/.zshrc"
     local marker="# >>> ghostty-cmux-zed setup >>>"
 
     if [[ -f "$zshrc" ]] && grep -q "$marker" "$zshrc"; then
-        info "Shell 集成已存在，跳过"
-    else
-        if $DRY_RUN; then
-            warn "[dry-run] 将追加 Cmux/Zed 集成到 .zshrc"
+        info ".zshrc 集成已存在，跳过"
+        return
+    fi
+
+    if $DRY_RUN; then
+        warn "[dry-run] 将追加 Shell 集成到 .zshrc"
+        return
+    fi
+
+    backup_if_exists "$zshrc" "zshrc.bak"
+    cat "$BACKUP_DIR/zshrc-append" >> "$zshrc"
+    info "Shell 集成已追加到 .zshrc ✓"
+}
+
+# ============================================================
+# 4. 兼容性检查
+# ============================================================
+check_compatibility() {
+    step "兼容性检查"
+
+    local ghostty_cfg="$HOME/.config/ghostty/config"
+    if [[ -f "$ghostty_cfg" ]]; then
+        if grep -q "copy-on-select = clipboard" "$ghostty_cfg"; then
+            warn "Ghostty: copy-on-select = clipboard 与 Cmux 可能冲突"
+            echo "   运行以下命令修复:"
+            echo "   sed -i '' 's/copy-on-select = clipboard/copy-on-select = false/' $ghostty_cfg"
         else
-            backup_if_exists "$zshrc" "zshrc.bak"
-            cat "$CONFIG_DIR/zshrc-append" >> "$zshrc"
-            info "Shell 集成已追加到 .zshrc"
+            info "Ghostty copy-on-select 兼容 ✓"
         fi
     fi
 }
 
-deploy_configs() {
-    deploy_ghostty_config
-    deploy_zed_config
-    deploy_cmux_hooks
-    deploy_shell_integration
-}
-
 # ============================================================
-# 4. 验证
+# 5. 验证
 # ============================================================
 verify() {
-    step "验证安装结果"
+    step "验证安装"
 
     local all_ok=true
-
-    for app in "cmux:Cmux" "zed:Zed"; do
+    for app in "cmux:Cmux" "ghostty:Ghostty" "zed:Zed"; do
         local cmd="${app%%:*}" name="${app##*:}"
-        if command -v "$cmd" &>/dev/null || ls "/Applications/${name}.app" &>/dev/null 2>&1; then
+        if ls "/Applications/${name}.app" &>/dev/null 2>&1 || command -v "$cmd" &>/dev/null; then
             info "$name ✓"
         else
-            error "$name 未找到"
+            warn "$name 未安装"
             all_ok=false
         fi
     done
 
-    for cmd in starship fastfetch btop; do
-        if command -v "$cmd" &>/dev/null; then
-            info "$cmd ✓"
+    for tool in starship fastfetch btop; do
+        if command -v "$tool" &>/dev/null; then
+            info "$tool ✓"
         else
-            error "$cmd 未找到"
+            warn "$tool 未安装"
             all_ok=false
         fi
     done
 
     echo ""
-    if [[ -f "$HOME/.config/ghostty/config" ]]; then
-        info "Ghostty 配置 ✓ (Cmux 共用)"
-    else
-        error "Ghostty 配置缺失"
-        all_ok=false
-    fi
-
     if $all_ok; then
-        echo ""
         echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-        info "全部就绪！"
+        info "全部就绪！重启终端后开始使用"
         echo ""
-        echo "  快速开始:"
-        echo "    1. 打开 Cmux.app"
-        echo "    2. 新建 Workspace → 命名项目"
-        echo "    3. 启动 Claude Code: claude"
-        echo "    4. 分屏: cmux new-split right"
-        echo "    5. 需要编辑文件时: zed ."
+        echo "  exec zsh"
         echo ""
-        echo "  常用 Cmux CLI:"
-        echo "    cmux list-workspaces       # 列出工作区"
-        echo "    cmux new-split right       # 右侧分屏"
-        echo "    cmux new-split down        # 下方分屏"
-        echo "    cmux notify --title X      # 发送通知"
-        echo "    cmux new-pane --type browser --url URL"
+        echo "  多 Agent 模式:"
+        echo "    open -a Cmux"
+        echo "    cw myproject     # 新建 Workspace"
+        echo "    cc               # 启动 Claude Code"
+        echo "    zed .            # 编辑文件"
         echo ""
-        echo "  Zed 快捷操作:"
-        echo "    zed .                      # 打开当前目录"
-        echo "    zed file.py                # 打开文件"
-        echo "    Cmd+Shift+A                # Agent Panel"
+        echo "  轻量独立模式:"
+        echo "    open -a Ghostty"
         echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    else
-        warn "部分组件未就绪，请检查上述信息。"
     fi
 }
 
@@ -275,13 +261,14 @@ verify() {
 main() {
     echo "╔══════════════════════════════════════════════╗"
     echo "║  Ghostty + Cmux + Zed 环境初始化            ║"
-    echo "║  AI 编程终端栈 · 兼容模式                   ║"
+    echo "║  部署真实配置 · 快速进入工作                 ║"
     echo "╚══════════════════════════════════════════════╝"
     echo ""
 
     check_prerequisites
-    install_packages
-    deploy_configs
+    install_via_brewfile
+    deploy_all
+    check_compatibility
     verify
 }
 

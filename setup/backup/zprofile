@@ -1,0 +1,10 @@
+
+eval $(/opt/homebrew/bin/brew shellenv) #ckbrew
+unset HOMEBREW_BREW_GIT_REMOTE
+unset HOMEBREW_CORE_GIT_REMOTE
+unset HOMEBREW_BOTTLE_DOMAIN
+unset HOMEBREW_API_DOMAIN
+
+
+# Added by Obsidian
+export PATH="$PATH:/Applications/Obsidian.app/Contents/MacOS"

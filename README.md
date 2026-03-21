@@ -26,37 +26,6 @@
 └─────────────────────────────────────────────┘
 ```
 
-## 两种使用模式
-
-### 模式 A: 多 Agent 协作 (Cmux + Zed)
-
-多个 AI Agent 并行编程时使用。
-
-```bash
-# Cmux: 新建 Workspace，按项目组织会话
-cw myproject     # 创建 Workspace
-
-# Cmux: 分屏启动 Agent
-cc               # 右侧分屏 + 启动 Claude Code
-
-# Cmux: 内置浏览器看文档
-cb https://docs.example.com
-
-# Zed: 编辑文件
-zed file.py     # 打开文件
-z.              # 打开当前目录
-```
-
-### 模式 B: 轻量独立 (Ghostty)
-
-单 Agent 或日常终端操作，快速启动。
-
-```bash
-claude           # 启动 Claude Code
-Cmd+Alt+D        # Ghostty 原生分屏
-Ctrl+`           # Quick Terminal (全局呼出)
-```
-
 ## 一键安装
 
 ```bash
@@ -65,36 +34,94 @@ brew tap madlouse/ghostty https://github.com/madlouse/homebrew-ghostty
 brew install ghostty-cmux
 ```
 
+或手动运行（直接克隆本仓库）：
+
+```bash
+git clone https://github.com/madlouse/ghostty-optimization.git ~/dev/ghostty-optimization
+cd ~/dev/ghostty-optimization
+bash setup/bootstrap.sh
+```
+
 ## 文件结构
 
 ```
-ghostty-optimization/
-├── setup/
-│   ├── bootstrap.sh          # 初始化脚本 (Homebrew 自动调用)
-│   └── configs/
-│       ├── ghostty-config    # Ghostty 配置 (Cmux 共用)
-│       ├── zed-settings.json # Zed 配置
-│       └── cmux-notify-hook.sh  # Agent 通知 Hook
-├── optimizations/            # Ghostty 性能 / UX / 主题优化
-├── resources/               # 研究文档 (Cmux/Zed/Ghostty)
-└── benchmarks/              # 性能测试方法
+setup/
+├── bootstrap.sh              # 初始化脚本 (由 Homebrew 或手动调用)
+├── backup/                   # ★ 当前机器真实配置（已同步到仓库）
+│   ├── Brewfile              # 全部 brew 包列表
+│   ├── ghostty-config        # Ghostty 配置
+│   ├── starship.toml         # Starship prompt 配置
+│   ├── zprofile             # .zprofile
+│   ├── zshrc-append         # .zshrc 追加内容
+│   ├── zed/settings.json    # Zed 配置
+│   ├── zsh-completions/     # Zsh 补全 (_opencli)
+│   └── claude-hooks/        # Claude Code Hooks (Cmux 通知)
+├── configs/                  # 配置模板（不含敏感信息）
+│   ├── ghostty-config        # Ghostty 配置模板
+│   ├── zed-settings.json     # Zed 配置模板
+│   └── cmux-notify-hook.sh  # Cmux 通知 Hook
+└── README.md                 # 本文件
+
+optimizations/                # Ghostty 性能 / UX / 主题优化
+resources/                   # 研究文档
+benchmarks/                  # 性能测试方法
+current-config/              # Ghostty 当前配置备份
 ```
 
-## 配置兼容性
+## 两种使用模式
+
+### 模式 A: 多 Agent 协作 (Cmux + Zed)
+
+```bash
+open -a Cmux              # 启动 Cmux
+cw myproject              # 新建 Workspace
+cc                        # 右侧分屏 + 启动 Claude Code
+cb https://docs.example.com  # 内置浏览器
+
+zed .                     # 打开当前目录
+zed file.py               # 打开文件
+```
+
+### 模式 B: 轻量独立 (Ghostty)
+
+```bash
+open -a Ghostty           # 启动 Ghostty
+Cmd+Alt+D                 # Ghostty 原生分屏
+Ctrl+`                    # Quick Terminal (全局呼出)
+```
+
+## 配置说明
 
 | 工具 | 配置路径 | 来源 |
 |------|----------|------|
-| Ghostty | `~/.config/ghostty/config` | 本仓库 `setup/configs/ghostty-config` |
-| Cmux | 同上 (libghostty 读取) | 同上 |
-| Zed | `~/.config/zed/settings.json` | 本仓库 `setup/configs/zed-settings.json` |
-| Starship | `~/.config/starship.toml` | 保留已有 / 需单独配置 |
+| Ghostty / Cmux | `~/.config/ghostty/config` | `setup/backup/ghostty-config` |
+| Starship | `~/.config/starship.toml` | `setup/backup/starship.toml` |
+| Zed | `~/.config/zed/settings.json` | `setup/backup/zed/settings.json` |
 | Shell | `~/.zshrc` | 追加模式，不覆盖已有 |
+
+## 更新配置
+
+当前机器配置变更后，同步到仓库：
+
+```bash
+cd ~/dev/ghostty-optimization
+cp ~/.config/ghostty/config setup/backup/ghostty-config
+cp ~/.config/starship.toml setup/backup/starship.toml
+cp ~/.config/zed/settings.json setup/backup/zed/settings.json
+cp ~/.zprofile setup/backup/zprofile
+cp ~/.zsh/completions/_opencli setup/backup/zsh-completions/_opencli
+cp ~/.claude/hooks/cmux-notify-hook.sh setup/backup/claude-hooks/
+git add -A && git commit -m "sync: update configs" && git push
+```
+
+之后在新电脑上 `brew upgrade ghostty-cmux` 即可拉取最新配置。
 
 ## 开发状态
 
-- [x] Ghostty 配置优化完成
+- [x] Ghostty 配置同步完成
 - [x] Cmux + Zed 集成方案完成
-- [x] 一键部署脚本完成
+- [x] Brewfile 备份完成
+- [x] Starship / Zsh / Zed 真实配置同步
 - [x] Homebrew Tap 安装方式完成
 - [ ] Cmux workspace 模板配置
 - [ ] Zed MCP Server 完整配置

@@ -1,0 +1,65 @@
+# ============================================================
+# Brewfile — ghostty-optimization AI 编程环境
+# 生成日期: 2026-03-21
+# 用法:
+#   brew bundle install --file=Brewfile   # 安装
+#   brew bundle dump --file=Brewfile      # 导出当前环境
+# ============================================================
+
+# ---- AI 编程终端栈 (核心) ----
+cask "cmux"
+cask "ghostty"
+cask "zed"
+cask "font-jetbrains-mono-nerd-font"
+
+# ---- Shell 工具 ----
+brew "starship"
+brew "zsh-autosuggestions"
+brew "zsh-syntax-highlighting"
+brew "zsh-completions"
+
+# ---- 系统信息 & 监控 ----
+brew "fastfetch"
+brew "btop"
+
+# ---- Git & 版本控制 ----
+brew "gh"
+brew "git"
+
+# ---- 开发工具 ----
+brew "node"
+brew "uv"
+brew "pyenv"
+
+# ---- CLI 工具 ----
+brew "glow"
+brew "bat"
+brew "blueutil"
+brew "docker"
+brew "ffmpeg"
+brew "giflib"
+brew "libyaml"
+brew "pkgconf"
+brew "smartdns"
+brew "webp"
+brew "xz"
+brew "zstd"
+brew "wget"
+brew "jq"
+brew "ripgrep"
+
+# ---- 字体 (Cask) ----
+cask "font-fira-code"
+cask "font-cascadia-code"
+cask "font-jetbrains-mono"
+
+# ---- 其他工具 ----
+cask "1password-cli"
+cask "cc-switch"
+cask "docker-desktop"
+cask "gcloud-cli"
+cask "macdown"
+
+# ---- Taps ----
+tap "manaflow-ai/cmux"
+tap "homebrew/cask-fonts"
