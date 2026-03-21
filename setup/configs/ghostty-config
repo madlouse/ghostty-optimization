@@ -1,0 +1,74 @@
+# ============================================================
+# Ghostty 配置 — AI Agent 多协作编程优化
+# 用途: Ghostty 独立使用 / Cmux 共用 (libghostty 直接读取)
+# 设备: 16" MacBook Pro
+# ============================================================
+
+# --- Font ---
+font-family = JetBrainsMono Nerd Font
+font-size = 16
+font-thicken = true
+font-feature = +calt
+font-feature = +liga
+adjust-cell-height = 2
+
+# --- Theme ---
+# macOS 外观自动切换
+theme = light:Catppuccin Latte,dark:Catppuccin Mocha
+
+# --- Window ---
+window-padding-x = 14
+window-padding-y = 10
+window-padding-balance = true
+macos-titlebar-style = transparent
+window-save-state = always
+window-inherit-working-directory = true
+window-inherit-font-size = true
+window-new-tab-position = current
+confirm-close-surface = true
+
+# --- Cursor ---
+cursor-style = bar
+cursor-style-blink = false
+
+# --- Scrollback (10MB — AI Agent 大量输出) ---
+scrollback-limit = 10000000
+
+# --- Clipboard ---
+clipboard-read = allow
+clipboard-write = allow
+clipboard-trim-trailing-spaces = true
+clipboard-paste-protection = true
+# Cmux 模式下建议 false; Ghostty 独立使用可改为 clipboard
+copy-on-select = false
+
+# --- Input ---
+mouse-hide-while-typing = true
+
+# --- Shell Integration ---
+shell-integration = detect
+shell-integration-features = cursor,sudo,title
+
+# --- Unicode / Emoji (AI 输出常含 emoji) ---
+grapheme-width-method = unicode
+
+# --- Splits (Ghostty 独立模式) ---
+unfocused-split-opacity = 0.75
+
+# --- Quick Terminal (全局 Ctrl+` 呼出) ---
+keybind = global:ctrl+grave_accent=toggle_quick_terminal
+quick-terminal-position = top
+quick-terminal-screen = mouse
+quick-terminal-animation-duration = 0.15
+quick-terminal-autohide = true
+
+# --- 分屏快捷键 (Ghostty 独立模式) ---
+keybind = super+alt+left=goto_split:left
+keybind = super+alt+right=goto_split:right
+keybind = super+alt+up=goto_split:top
+keybind = super+alt+down=goto_split:bottom
+keybind = super+alt+d=new_split:right
+keybind = super+alt+shift+d=new_split:down
+keybind = super+alt+enter=toggle_split_zoom
+keybind = super+alt+equal=equalize_splits
+keybind = super+k=clear_screen

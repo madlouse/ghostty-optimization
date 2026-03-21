@@ -1,0 +1,35 @@
+
+# >>> ghostty-cmux-zed setup >>>
+# AI 编程终端栈集成
+
+# --- Cmux Shell 集成 ---
+if command -v cmux &>/dev/null; then
+    eval "$(cmux shell zsh 2>/dev/null)" || true
+fi
+
+# --- Zed 快捷别名 ---
+alias z="zed"
+alias z.="zed ."
+
+# --- Cmux 快捷函数 ---
+# 快速新建项目 Workspace
+cw() {
+    local name="${1:-$(basename "$PWD")}"
+    cmux new-workspace --name "$name" 2>/dev/null
+    echo "Workspace '$name' created"
+}
+
+# 在当前 workspace 右侧分屏并启动 Claude Code
+cc() {
+    cmux new-split right 2>/dev/null
+    cmux send --surface last "claude" 2>/dev/null
+    cmux send-key --surface last "Return" 2>/dev/null
+}
+
+# 在 Cmux 中打开内置浏览器
+cb() {
+    local url="${1:-http://localhost:3000}"
+    cmux new-pane --type browser --url "$url" 2>/dev/null
+}
+
+# <<< ghostty-cmux-zed setup <<<
