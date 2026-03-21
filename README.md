@@ -1,74 +1,108 @@
-# AI Agent 多协作编程平台
+# Ghostty + Cmux + Zed — AI Agent 多协作编程平台
 
-基于 Ghostty + Cmux + Zed 构建的 AI 多 Agent 协作编程环境。
+> **安装入口**: `brew install ghostty-cmux`（详见 [Setup Repository](https://github.com/madlouse/homebrew-ghostty)）
+>
+> **配置文件源码**: 本仓库
 
 ## 架构
 
 ```
-┌─────────────────────────────────────────────────┐
-│  Cmux (AI 指挥中心)                              │
-│  ┌──────────┬──────────┬──────────┐             │
-│  │ Claude   │ Codex    │ Browser  │  ← 分屏     │
-│  │ Code     │          │ (内置)   │             │
-│  ├──────────┴──────────┴──────────┤             │
-│  │       libghostty 渲染引擎       │  ← GPU 加速 │
-│  │     读取 ~/.config/ghostty/config│             │
-│  └────────────────────────────────┘             │
-├─────────────────────────────────────────────────┤
-│  Zed (代码编辑器)                                │
-│  · 文件浏览/编辑  · AI Agent Panel  · MCP 集成   │
-├─────────────────────────────────────────────────┤
-│  Ghostty (独立终端 / 配置基座)                    │
-│  · 可单独使用  · 配置被 Cmux 共用  · 快速轻量     │
-└─────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────┐
+│  Cmux (AI 指挥中心)                          │
+│  ├ 多 Agent 会话并行管理                      │
+│  ├ 内置 libghostty 渲染 (GPU 加速)           │
+│  ├ Agent 通知系统 (完成/等待/错误)            │
+│  └ 内置浏览器 (WebKit)                        │
+├─────────────────────────────────────────────┤
+│  Zed (代码编辑器)                             │
+│  ├ AI Agent Panel (Claude/GPT 多模型)         │
+│  ├ MCP Server 集成                           │
+│  └ 文件浏览 / 编辑                            │
+├─────────────────────────────────────────────┤
+│  Ghostty (终端基座)                          │
+│  ├ 独立使用：轻量单 Agent 模式                │
+│  ├ Cmux 模式：配置由 libghostty 共用          │
+│  └ 统一配置: ~/.config/ghostty/config         │
+└─────────────────────────────────────────────┘
 ```
 
 ## 两种使用模式
 
 ### 模式 A: 多 Agent 协作 (Cmux + Zed)
-多个 AI Agent 并行编程时使用，Cmux 管理会话，Zed 编辑文件。
 
-### 模式 B: 轻量独立 (Ghostty 单独)
-单 Agent 或日常终端操作，直接用 Ghostty，快速轻量。
-
-## 文档导航
-
-| 文档 | 内容 |
-|------|------|
-| [setup/README.md](setup/README.md) | **快速部署指南** — 新电脑一键初始化 |
-| [USER-GUIDE.md](USER-GUIDE.md) | Ghostty 使用指南 |
-| [QUICK-REF.md](QUICK-REF.md) | 快捷键速查 |
-| [WORKFLOWS.md](WORKFLOWS.md) | 工作流示例 |
-
-### 配置与优化
-| 目录 | 内容 |
-|------|------|
-| `setup/` | 一键部署脚本 + 全部配置模板 |
-| `current-config/` | Ghostty 当前配置备份 |
-| `optimizations/` | Ghostty 优化方案集合 |
-
-### 参考资料
-| 文件 | 内容 |
-|------|------|
-| `resources/cmux-zed-research.md` | Cmux + Zed 集成研究 |
-| `resources/bruceblue-tips.md` | BruceBlue Ghostty 优化建议 |
-| `benchmarks/` | 性能测试方法 |
-
-## 快速开始
+多个 AI Agent 并行编程时使用。
 
 ```bash
-# 新电脑初始化 (安装 Cmux + Zed + Ghostty 配置)
-bash ~/dev/ghostty-optimization/setup/bootstrap.sh
+# Cmux: 新建 Workspace，按项目组织会话
+cw myproject     # 创建 Workspace
 
-# 日常使用
-# 多 Agent 模式 → 打开 Cmux → 新建 Workspace
-# 轻量模式 → 打开 Ghostty
-# 编辑文件 → zed .
+# Cmux: 分屏启动 Agent
+cc               # 右侧分屏 + 启动 Claude Code
+
+# Cmux: 内置浏览器看文档
+cb https://docs.example.com
+
+# Zed: 编辑文件
+zed file.py     # 打开文件
+z.              # 打开当前目录
 ```
 
-## 已完成
-- Ghostty 配置优化 (字体、主题、分屏、Quick Terminal)
-- Starship 彩虹状态栏
-- fastfetch / btop 监控工具
-- BruceBlue 优化建议整合
-- Cmux + Zed 集成方案及部署脚本
+### 模式 B: 轻量独立 (Ghostty)
+
+单 Agent 或日常终端操作，快速启动。
+
+```bash
+claude           # 启动 Claude Code
+Cmd+Alt+D        # Ghostty 原生分屏
+Ctrl+`           # Quick Terminal (全局呼出)
+```
+
+## 一键安装
+
+```bash
+# 新电脑，一行命令搞定
+brew tap madlouse/ghostty https://github.com/madlouse/homebrew-ghostty
+brew install ghostty-cmux
+```
+
+## 文件结构
+
+```
+ghostty-optimization/
+├── setup/
+│   ├── bootstrap.sh          # 初始化脚本 (Homebrew 自动调用)
+│   └── configs/
+│       ├── ghostty-config    # Ghostty 配置 (Cmux 共用)
+│       ├── zed-settings.json # Zed 配置
+│       └── cmux-notify-hook.sh  # Agent 通知 Hook
+├── optimizations/            # Ghostty 性能 / UX / 主题优化
+├── resources/               # 研究文档 (Cmux/Zed/Ghostty)
+└── benchmarks/              # 性能测试方法
+```
+
+## 配置兼容性
+
+| 工具 | 配置路径 | 来源 |
+|------|----------|------|
+| Ghostty | `~/.config/ghostty/config` | 本仓库 `setup/configs/ghostty-config` |
+| Cmux | 同上 (libghostty 读取) | 同上 |
+| Zed | `~/.config/zed/settings.json` | 本仓库 `setup/configs/zed-settings.json` |
+| Starship | `~/.config/starship.toml` | 保留已有 / 需单独配置 |
+| Shell | `~/.zshrc` | 追加模式，不覆盖已有 |
+
+## 开发状态
+
+- [x] Ghostty 配置优化完成
+- [x] Cmux + Zed 集成方案完成
+- [x] 一键部署脚本完成
+- [x] Homebrew Tap 安装方式完成
+- [ ] Cmux workspace 模板配置
+- [ ] Zed MCP Server 完整配置
+- [ ] 跨设备验证
+
+## 参考
+
+- [Cmux 官网](https://cmux.com/) · [GitHub](https://github.com/manaflow-ai/cmux)
+- [Zed 编辑器](https://zed.dev/) · [Ghostty 扩展](https://zed.dev/extensions/ghostty)
+- [Ghostty 官方文档](https://ghostty.org/docs)
+- [BetterStack Cmux 指南](https://betterstack.com/community/guides/ai/cmux-terminal/)
