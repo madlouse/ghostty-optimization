@@ -1,0 +1,12 @@
+# ~/.zshrc.local — 本机专属配置（此文件不进 git）
+# 将当前机器特有的别名、路径、项目快捷方式写在这里
+
+# ---- 项目快捷方式 ----
+# alias teams='/Users/yourname/dev/AgenticOS/projects/360teams/start-debug.sh'
+# alias rd3="uv run ~/Dev/code/reader3/reader3.py"
+
+# ---- 工具路径（如果不在标准位置）----
+# export READER3_HOME="$HOME/.reader3"
+
+# ---- 公司/团队专属 ----
+# export SOME_INTERNAL_ENDPOINT="http://internal.example.com"

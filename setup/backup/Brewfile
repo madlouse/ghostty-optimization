@@ -1,65 +1,81 @@
-# ============================================================
-# Brewfile — ghostty-optimization AI 编程环境
-# 生成日期: 2026-03-21
-# 用法:
-#   brew bundle install --file=Brewfile   # 安装
-#   brew bundle dump --file=Brewfile      # 导出当前环境
-# ============================================================
-
-# ---- AI 编程终端栈 (核心) ----
-cask "cmux"
-cask "ghostty"
-cask "zed"
-cask "font-jetbrains-mono-nerd-font"
-
-# ---- Shell 工具 ----
-brew "starship"
-brew "zsh-autosuggestions"
-brew "zsh-syntax-highlighting"
-brew "zsh-completions"
-
-# ---- 系统信息 & 监控 ----
-brew "fastfetch"
-brew "btop"
-
-# ---- Git & 版本控制 ----
-brew "gh"
-brew "git"
-
-# ---- 开发工具 ----
-brew "node"
-brew "uv"
-brew "pyenv"
-
-# ---- CLI 工具 ----
-brew "glow"
+tap "farion1231/ccswitch"
+tap "homebrew/services", "https://gitee.com/cunkai/homebrew-services.git"
+tap "madlouse/360teams"
+tap "madlouse/agent-cli-api"
+tap "madlouse/agenticos"
+tap "madlouse/ghostty"
+tap "manaflow-ai/cmux"
+tap "tw93/tap"
 brew "bat"
 brew "blueutil"
-brew "docker"
+brew "btop"
+brew "docker", link: false
+brew "fastfetch"
 brew "ffmpeg"
-brew "giflib"
-brew "libyaml"
-brew "pkgconf"
+brew "node"
+brew "gemini-cli"
+brew "gh"
+brew "git"
+brew "glow"
+brew "hyperfine"
+brew "librsvg"
+brew "maven"
+brew "mdcat"
+brew "mysql@8.4"
+brew "node@20"
+brew "pyenv"
+brew "python@3.10"
+brew "python@3.11"
+brew "ruby"
 brew "smartdns"
-brew "webp"
-brew "xz"
-brew "zstd"
-brew "wget"
-brew "jq"
-brew "ripgrep"
-
-# ---- 字体 (Cask) ----
-cask "font-fira-code"
-cask "font-cascadia-code"
-cask "font-jetbrains-mono"
-
-# ---- 其他工具 ----
+brew "starship"
+brew "tesseract"
+brew "tesseract-lang"
+brew "uv"
+brew "wgcf"
+brew "zsh-autosuggestions"
+brew "zsh-syntax-highlighting"
+brew "madlouse/agent-cli-api/agent-cli-api"
+brew "madlouse/agenticos/agenticos"
+brew "tw93/tap/mole"
 cask "1password-cli"
-cask "cc-switch"
-cask "docker-desktop"
+cask "farion1231/ccswitch/cc-switch"
+cask "claude-code"
+cask "cmux"
+cask "docker-desktop", args: { appdir: "/Applications" }
+cask "font-cascadia-code"
+cask "font-fira-code"
+cask "font-jetbrains-mono"
+cask "font-jetbrains-mono-nerd-font"
 cask "gcloud-cli"
+cask "ghostty"
 cask "macdown"
-
-# ---- Taps ----
-tap "manaflow-ai/cmux"
-tap "homebrew/cask-fonts"
+cask "squirrel-app"
+cask "zed"
+vscode "anthropic.claude-code"
+vscode "anysphere.cursorpyright"
+vscode "anysphere.remote-ssh"
+vscode "bpruitt-goddard.mermaid-markdown-syntax-highlighting"
+vscode "davidanson.vscode-markdownlint"
+vscode "eamodio.gitlens"
+vscode "google.gemini-cli-vscode-ide-companion"
+vscode "grapecity.gc-excelviewer"
+vscode "hediet.vscode-drawio"
+vscode "highagency.pencildev"
+vscode "mhutchie.git-graph"
+vscode "ms-python.debugpy"
+vscode "ms-python.python"
+vscode "openai.chatgpt"
+vscode "redhat.java"
+vscode "tomoki1207.pdf"
+vscode "visualstudioexptteam.intellicode-api-usage-examples"
+vscode "visualstudioexptteam.vscodeintellicode"
+vscode "vscjava.vscode-gradle"
+vscode "vscjava.vscode-java-debug"
+vscode "vscjava.vscode-java-dependency"
+vscode "vscjava.vscode-java-pack"
+vscode "vscjava.vscode-java-test"
+vscode "vscjava.vscode-lombok"
+vscode "vscjava.vscode-maven"
+vscode "vstirbu.vscode-mermaid-preview"
+uv "arxiv-mcp-server"

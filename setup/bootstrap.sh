@@ -44,10 +44,15 @@ check_prerequisites() {
         else
             warn "安装 Homebrew ..."
             /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-            eval "$(/opt/homebrew/bin/brew shellenv)"
+            # Apple Silicon / Intel 自动适配
+            if [[ -f /opt/homebrew/bin/brew ]]; then
+                eval "$(/opt/homebrew/bin/brew shellenv)"
+            else
+                eval "$(/usr/local/bin/brew shellenv)"
+            fi
         fi
     else
-        info "Homebrew ✓"
+        info "Homebrew ✓ ($(brew --version | head -1))"
     fi
 
     # 检查备份文件是否存在
@@ -169,27 +174,45 @@ deploy_all() {
         info "Claude Code Hooks 已部署 ✓"
     fi
 
-    # --- Shell 集成 (.zshrc) ---
-    deploy_shell_integration
-}
+    # --- .zshrc (完整可移植版，覆盖部署) ---
+    deploy_zshrc
 
-deploy_shell_integration() {
-    local zshrc="$HOME/.zshrc"
-    local marker="# >>> ghostty-cmux-zed setup >>>"
-
-    if [[ -f "$zshrc" ]] && grep -q "$marker" "$zshrc"; then
-        info ".zshrc 集成已存在，跳过"
-        return
+    # --- .env.local（secrets 模板，仅首次创建）---
+    if [[ ! -f "$HOME/.env.local" ]]; then
+        if $DRY_RUN; then
+            warn "[dry-run] 将创建 ~/.env.local"
+        else
+            cp "$BACKUP_DIR/env.local.example" "$HOME/.env.local"
+            warn "已创建 ~/.env.local — 请编辑填入你的 API keys"
+        fi
+    else
+        info "~/.env.local 已存在，跳过"
     fi
 
+    # --- .zshrc.local（本机专属配置模板，仅首次创建）---
+    if [[ ! -f "$HOME/.zshrc.local" ]]; then
+        if $DRY_RUN; then
+            warn "[dry-run] 将创建 ~/.zshrc.local"
+        else
+            cp "$BACKUP_DIR/zshrc.local.example" "$HOME/.zshrc.local"
+            warn "已创建 ~/.zshrc.local — 请编辑填入本机专属配置"
+        fi
+    else
+        info "~/.zshrc.local 已存在，跳过"
+    fi
+}
+
+deploy_zshrc() {
+    local zshrc="$HOME/.zshrc"
+
     if $DRY_RUN; then
-        warn "[dry-run] 将追加 Shell 集成到 .zshrc"
+        warn "[dry-run] 将部署完整可移植 .zshrc（备份旧版）"
         return
     fi
 
     backup_if_exists "$zshrc" "zshrc.bak"
-    cat "$BACKUP_DIR/zshrc-append" >> "$zshrc"
-    info "Shell 集成已追加到 .zshrc ✓"
+    cp "$BACKUP_DIR/zshrc" "$zshrc"
+    info ".zshrc 已部署 ✓"
 }
 
 # ============================================================
