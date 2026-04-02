@@ -12,6 +12,9 @@ BACKUP_DIR="$SCRIPT_DIR/backup"
 CONFIG_DIR="$SCRIPT_DIR/configs"
 BACKUP_USER="$HOME/.config-backup/ghostty-opt-$(date +%Y%m%d-%H%M%S)"
 
+# 幂等性标记：部署过 .zshrc 后写入此标记，再次运行时跳过
+MARKER_FILE="$HOME/.config/.ghostty-opt-deployed"
+
 # 颜色
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
@@ -23,9 +26,16 @@ info()  { echo -e "${GREEN}[✓]${NC} $1"; }
 warn()  { echo -e "${YELLOW}[!]${NC} $1"; }
 error() { echo -e "${RED}[✗]${NC} $1"; }
 step()  { echo -e "\n${CYAN}==>${NC} $1"; }
+skip()  { echo -e "${GREEN}[→]${NC} $1 (已一致，跳过)"; }
 
 DRY_RUN=false
-[[ "${1:-}" == "--dry-run" ]] && DRY_RUN=true && warn "预览模式，不会实际修改" && echo ""
+FORCE=false
+for arg in "$@"; do
+    case "$arg" in
+        --dry-run) DRY_RUN=true; warn "预览模式，不会实际修改" && echo "" ;;
+        --force)   FORCE=true ;;
+    esac
+done
 
 # ============================================================
 # 1. 前置检查
@@ -77,12 +87,12 @@ install_via_brewfile() {
         return
     fi
 
-    # Tap Cmux
+    # Tap Cmux（幂等：重复 tap 无害）
     if ! brew tap | grep -q "manaflow-ai/cmux"; then
         brew tap manaflow-ai/cmux
     fi
 
-    # 安装全部包
+    # brew bundle install 本身幂等：已装过的包跳过
     if brew bundle install --file="$BACKUP_DIR/Brewfile" --no-lock 2>&1 | tail -20; then
         info "Brewfile 安装完成"
     else
@@ -102,79 +112,57 @@ backup_if_exists() {
     fi
 }
 
+# 幂等部署：仅在文件内容不一致时才覆盖
+# 返回 0=一致（跳过），1=不一致（已部署），2=不存在（已部署）
+deploy_file() {
+    local src="$1" dst="$2" label="$3"
+    if [[ -f "$dst" ]] && diff -q "$src" "$dst" &>/dev/null; then
+        $DRY_RUN && warn "[dry-run] $label 已一致，跳过" || skip "$label"
+        return 0
+    fi
+    if $DRY_RUN; then
+        warn "[dry-run] 将部署 $label"
+        return 0
+    fi
+    mkdir -p "$(dirname "$dst")"
+    cp "$src" "$dst"
+    info "$label 已部署 ✓"
+    return 1
+}
+
 deploy_all() {
     step "部署全部配置"
 
     # --- Ghostty / Cmux 配置 ---
-    local ghostty_target="$HOME/.config/ghostty/config"
-    if [[ -f "$ghostty_target" ]]; then
-        backup_if_exists "$ghostty_target" "ghostty-config.bak"
-    fi
-    if $DRY_RUN; then
-        warn "[dry-run] 将部署 Ghostty 配置"
-    else
-        mkdir -p "$(dirname "$ghostty_target")"
-        cp "$BACKUP_DIR/ghostty-config" "$ghostty_target"
-        info "Ghostty 配置已部署 ✓"
-    fi
+    deploy_file "$BACKUP_DIR/ghostty-config" \
+        "$HOME/.config/ghostty/config" "Ghostty 配置"
 
     # --- Starship 配置 ---
-    local starship_target="$HOME/.config/starship.toml"
-    if [[ -f "$starship_target" ]]; then
-        backup_if_exists "$starship_target" "starship.toml.bak"
-    fi
-    if $DRY_RUN; then
-        warn "[dry-run] 将部署 Starship 配置"
-    else
-        mkdir -p "$(dirname "$starship_target")"
-        cp "$BACKUP_DIR/starship.toml" "$starship_target"
-        info "Starship 配置已部署 ✓"
-    fi
+    deploy_file "$BACKUP_DIR/starship.toml" \
+        "$HOME/.config/starship.toml" "Starship 配置"
 
     # --- .zprofile ---
-    if [[ -f "$HOME/.zprofile" ]]; then
-        backup_if_exists "$HOME/.zprofile" "zprofile.bak"
-    fi
-    if $DRY_RUN; then
-        warn "[dry-run] 将部署 .zprofile"
-    else
-        cp "$BACKUP_DIR/zprofile" "$HOME/.zprofile"
-        info ".zprofile 已部署 ✓"
-    fi
+    deploy_file "$BACKUP_DIR/zprofile" \
+        "$HOME/.zprofile" ".zprofile"
 
     # --- Zed 配置 ---
-    local zed_target="$HOME/.config/zed/settings.json"
-    if [[ -f "$zed_target" ]]; then
-        backup_if_exists "$zed_target" "zed-settings.json.bak"
-    fi
-    if $DRY_RUN; then
-        warn "[dry-run] 将部署 Zed 配置"
-    else
-        mkdir -p "$(dirname "$zed_target")"
-        cp "$BACKUP_DIR/zed/settings.json" "$zed_target"
-        info "Zed 配置已部署 ✓"
-    fi
+    deploy_file "$BACKUP_DIR/zed/settings.json" \
+        "$HOME/.config/zed/settings.json" "Zed 配置"
 
     # --- Zsh Completions ---
-    if $DRY_RUN; then
-        warn "[dry-run] 将部署 Zsh Completions"
-    else
-        mkdir -p "$HOME/.zsh/completions"
-        cp "$BACKUP_DIR/zsh-completions/_opencli" "$HOME/.zsh/completions/"
-        info "Zsh Completions 已部署 ✓"
+    if [[ -f "$BACKUP_DIR/zsh-completions/_opencli" ]]; then
+        deploy_file "$BACKUP_DIR/zsh-completions/_opencli" \
+            "$HOME/.zsh/completions/_opencli" "Zsh Completions"
     fi
 
     # --- Claude Code Hooks ---
-    if $DRY_RUN; then
-        warn "[dry-run] 将部署 Claude Code Hooks"
-    else
-        mkdir -p "$HOME/.claude/hooks"
-        cp "$BACKUP_DIR/claude-hooks/cmux-notify-hook.sh" "$HOME/.claude/hooks/"
-        chmod +x "$HOME/.claude/hooks/cmux-notify-hook.sh"
-        info "Claude Code Hooks 已部署 ✓"
+    if [[ -f "$BACKUP_DIR/claude-hooks/cmux-notify-hook.sh" ]]; then
+        deploy_file "$BACKUP_DIR/claude-hooks/cmux-notify-hook.sh" \
+            "$HOME/.claude/hooks/cmux-notify-hook.sh" "Claude Code Hooks"
+        chmod +x "$HOME/.claude/hooks/cmux-notify-hook.sh" 2>/dev/null || true
     fi
 
-    # --- .zshrc (完整可移植版，覆盖部署) ---
+    # --- .zshrc（幂等：标记文件存在则跳过）---
     deploy_zshrc
 
     # --- .env.local（secrets 模板，仅首次创建）---
@@ -204,6 +192,15 @@ deploy_all() {
 
 deploy_zshrc() {
     local zshrc="$HOME/.zshrc"
+    local marker_dir="$(dirname "$MARKER_FILE")"
+
+    # 如果有标记文件且非 --force，且 .zshrc 已与备份一致 → 跳过
+    if [[ -f "$MARKER_FILE" ]] && ! $FORCE; then
+        if [[ -f "$zshrc" ]] && diff -q "$BACKUP_DIR/zshrc" "$zshrc" &>/dev/null; then
+            skip ".zshrc（已标记为已部署，内容一致）"
+            return 0
+        fi
+    fi
 
     if $DRY_RUN; then
         warn "[dry-run] 将部署完整可移植 .zshrc（备份旧版）"
@@ -212,6 +209,9 @@ deploy_zshrc() {
 
     backup_if_exists "$zshrc" "zshrc.bak"
     cp "$BACKUP_DIR/zshrc" "$zshrc"
+    # 写入幂等标记
+    mkdir -p "$marker_dir"
+    echo "$(date -r "$BACKUP_DIR/zshrc" +%Y-%m-%dT%H:%M:%S) $SCRIPT_DIR" > "$MARKER_FILE"
     info ".zshrc 已部署 ✓"
 }
 
@@ -284,8 +284,12 @@ verify() {
 main() {
     echo "╔══════════════════════════════════════════════╗"
     echo "║  Ghostty + Cmux + Zed 环境初始化            ║"
-    echo "║  部署真实配置 · 快速进入工作                 ║"
+    echo "║  幂等安装：内容一致时自动跳过                 ║"
     echo "╚══════════════════════════════════════════════╝"
+    echo ""
+    echo "用法: bash bootstrap.sh [--dry-run] [--force]"
+    echo "  --dry-run  预览将要执行的操作（不实际修改）"
+    echo "  --force    强制重新部署所有文件（忽略一致性检查）"
     echo ""
 
     check_prerequisites

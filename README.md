@@ -123,6 +123,22 @@ git add -A && git commit -m "sync: update configs" && git push
 
 之后在新电脑上 `brew upgrade ghostty-cmux` 即可拉取最新配置。
 
+## 安装验证
+
+安装完成后，运行幂等验证脚本检查所有配置状态：
+
+```bash
+bash setup/verify.sh
+```
+
+验证结果：✓ = 通过 / ✗ = 失败 / → = 跳过（正常）
+
+如需强制重新部署所有配置：
+
+```bash
+bash setup/bootstrap.sh --force
+```
+
 ## 开发状态
 
 - [x] Ghostty 配置同步完成

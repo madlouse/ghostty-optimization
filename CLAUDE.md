@@ -50,29 +50,36 @@ When you open this project in a new session, **immediately do the following**:
 
 ---
 
+## Agent Install Guide
+
+> For instructions on setting up a new machine, **see [AGENTS.md](./AGENTS.md) — New Machine Setup section**.
+> Canonical verification checklist: `bash setup/verify.sh`
+
+---
+
 ## Project DNA
 
-**一句话定位**: Ghostty 终端模拟器性能优化项目，包含基准测试、配置优化和迭代记录
+**一句话定位**: Ghostty + Cmux + Zed AI 多协作编程终端栈 — 配置备份、跨机器恢复、性能优化
 
-**核心设计原则**: (待补充 — 在项目推进中逐步完善)
+**核心设计原则**: 幂等安装（内容一致时自动跳过）、单一事实来源（README.md + verify.sh）、Agent 协作友好
 
-**技术栈**: (待补充)
+**技术栈**: Shell (bash), bats-core (tests), Homebrew (distribution)
 
 ---
 
 ## Current State
 
 <!-- AGENT_CONTEXT_START -->
-**Last Updated**: 2026-03-21T04:14:33.962Z
+**Last Updated**: 2026-04-02
 
-**Current Task**: No active task (status: unknown)
+**Current Task**: Issue #4 — 文档 + formula 修复（进行中）
 
 **Active Items**:
-- Define project goals
-- Set up initial tasks
+- bootstrap.sh 幂等性改造（已实现 diff 检查 + 标记文件）
+- 创建 `setup/verify.sh` 作为统一验证脚本
+- 更新 CLAUDE.md / AGENTS.md 文档引用关系
 
-
-**Next Action**: Define project goals
+**Next Action**: 完成 verify.sh + 文档引用后提交
 <!-- AGENT_CONTEXT_END -->
 
 ---
@@ -87,3 +94,7 @@ When you open this project in a new session, **immediately do the following**:
 | `knowledge/` | 持久化知识文档 |
 | `tasks/` | 任务追踪 |
 | `artifacts/` | 产出物 |
+| `setup/bootstrap.sh` | 幂等初始化脚本 |
+| `setup/verify.sh` | 统一验证 checklist（Canonical）|
+| `AGENTS.md` | Codex/Cursor Agent 安装指引 |
+| `README.md` | 人类入口文档（安装 guide 单一来源）|
