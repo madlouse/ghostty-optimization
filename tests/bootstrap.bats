@@ -137,7 +137,7 @@ MOCK
     install_via_brewfile
   "
   [ "$status" -eq 0 ]
-  run rg -- '--no-lock' "$BATS_TEST_TMPDIR/brew-args.log"
+  run grep -q -- '--no-lock' "$BATS_TEST_TMPDIR/brew-args.log"
   [ "$status" -eq 1 ]
 }
 

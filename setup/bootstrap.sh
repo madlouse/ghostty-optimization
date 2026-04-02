@@ -93,7 +93,7 @@ install_via_brewfile() {
     fi
 
     # brew bundle install 本身幂等：已装过的包跳过
-    # Homebrew 5.1.3 已移除旧的 --no-lock 参数。
+    # 现代 Homebrew 已不再支持旧的 --no-lock 参数。
     if brew bundle install --file="$BACKUP_DIR/Brewfile"; then
         info "Brewfile 安装完成"
     else
