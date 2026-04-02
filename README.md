@@ -51,11 +51,13 @@ setup/
 │   ├── Brewfile              # 全部 brew 包列表
 │   ├── ghostty-config        # Ghostty 配置
 │   ├── starship.toml         # Starship prompt 配置
-│   ├── zprofile             # .zprofile
-│   ├── zshrc-append         # .zshrc 追加内容
-│   ├── zed/settings.json    # Zed 配置
-│   ├── zsh-completions/     # Zsh 补全 (_opencli)
-│   └── claude-hooks/        # Claude Code Hooks (Cmux 通知)
+│   ├── zprofile              # .zprofile
+│   ├── zshrc                 # 完整可移植 .zshrc（覆盖部署，旧版先备份）
+│   ├── zshrc.local.example   # 本机专属配置模板（首次创建）
+│   ├── env.local.example     # API keys 模板（首次创建，不覆盖）
+│   ├── zed/settings.json     # Zed 配置
+│   ├── zsh-completions/      # Zsh 补全 (_opencli)
+│   └── claude-hooks/         # Claude Code Hooks (Cmux 通知)
 ├── configs/                  # 配置模板（不含敏感信息）
 │   ├── ghostty-config        # Ghostty 配置模板
 │   ├── zed-settings.json     # Zed 配置模板
@@ -92,12 +94,16 @@ Ctrl+`                    # Quick Terminal (全局呼出)
 
 ## 配置说明
 
-| 工具 | 配置路径 | 来源 |
-|------|----------|------|
-| Ghostty / Cmux | `~/.config/ghostty/config` | `setup/backup/ghostty-config` |
-| Starship | `~/.config/starship.toml` | `setup/backup/starship.toml` |
-| Zed | `~/.config/zed/settings.json` | `setup/backup/zed/settings.json` |
-| Shell | `~/.zshrc` | 追加模式，不覆盖已有 |
+| 工具 | 配置路径 | 来源 | 部署方式 |
+|------|----------|------|----------|
+| Ghostty / Cmux | `~/.config/ghostty/config` | `setup/backup/ghostty-config` | 覆盖（旧版备份至 `~/.config-backup/`）|
+| Starship | `~/.config/starship.toml` | `setup/backup/starship.toml` | 覆盖（旧版备份）|
+| Zed | `~/.config/zed/settings.json` | `setup/backup/zed/settings.json` | 覆盖（旧版备份）|
+| Shell | `~/.zshrc` | `setup/backup/zshrc` | **全量覆盖**（旧版备份至 `~/.config-backup/`）|
+| API Keys | `~/.env.local` | `setup/backup/env.local.example` | 仅首次创建，不覆盖 |
+| 本机专属 | `~/.zshrc.local` | `setup/backup/zshrc.local.example` | 仅首次创建，不覆盖 |
+
+> ⚠️ **注意**: `.zshrc` 采用全量覆盖，安装前请将自定义内容迁移到 `~/.zshrc.local`。
 
 ## 更新配置
 
@@ -109,6 +115,7 @@ cp ~/.config/ghostty/config setup/backup/ghostty-config
 cp ~/.config/starship.toml setup/backup/starship.toml
 cp ~/.config/zed/settings.json setup/backup/zed/settings.json
 cp ~/.zprofile setup/backup/zprofile
+cp ~/.zshrc setup/backup/zshrc
 cp ~/.zsh/completions/_opencli setup/backup/zsh-completions/_opencli
 cp ~/.claude/hooks/cmux-notify-hook.sh setup/backup/claude-hooks/
 git add -A && git commit -m "sync: update configs" && git push
