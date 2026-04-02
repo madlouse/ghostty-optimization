@@ -34,6 +34,9 @@ brew tap madlouse/ghostty https://github.com/madlouse/homebrew-ghostty
 brew install ghostty-cmux
 ```
 
+> 说明：Homebrew tap 按 release tag 发布，可能短暂落后于 `main`。
+> 如果你明确需要最新的 `bootstrap.sh` / `verify.sh` 修复，优先使用手动克隆方式直接运行主仓库最新代码。
+
 或手动运行（直接克隆本仓库）：
 
 ```bash

@@ -118,6 +118,29 @@ _source() {
   [[ "$output" == *"Brewfile"* ]]
 }
 
+@test "brewfile: install does not pass removed --no-lock flag" {
+  cat > "$BATS_TEST_TMPDIR/bin/brew" << 'MOCK'
+#!/usr/bin/env bash
+echo "$*" >> "$BATS_TEST_TMPDIR/brew-args.log"
+case "$1" in
+  tap)    echo "manaflow-ai/cmux"; exit 0 ;;
+  bundle) exit 0 ;;
+  *)      exit 0 ;;
+esac
+MOCK
+  chmod +x "$BATS_TEST_TMPDIR/bin/brew"
+
+  run bash -c "
+    export BATS_TEST_TMPDIR='$BATS_TEST_TMPDIR'
+    PATH='$BATS_TEST_TMPDIR/bin:$PATH'
+    $(_source)
+    install_via_brewfile
+  "
+  [ "$status" -eq 0 ]
+  run rg -- '--no-lock' "$BATS_TEST_TMPDIR/brew-args.log"
+  [ "$status" -eq 1 ]
+}
+
 @test "brewfile: brew bundle failure warns and continues" {
   cat > "$BATS_TEST_TMPDIR/bin/brew" << 'MOCK'
 #!/usr/bin/env bash

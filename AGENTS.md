@@ -66,6 +66,9 @@ brew tap madlouse/ghostty https://github.com/madlouse/homebrew-ghostty
 brew install ghostty-cmux
 ```
 
+> 注意：tap 包通常指向最近一个 release tag，而不是实时 `main`。
+> 如果任务明确要求“最新 bootstrap/verify 行为”，应优先克隆主仓库 `main` 再执行安装。
+
 **方式 B — 手动克隆**
 ```bash
 git clone https://github.com/madlouse/ghostty-optimization.git ~/dev/ghostty-optimization
@@ -84,6 +87,7 @@ bash setup/verify.sh
 | 问题 | 原因 | 修复 |
 |------|------|------|
 | `brew install` 报 "No formula zed/cmux" | 旧版 formula 把 cask 写成 formula | `brew untap madlouse/ghostty && brew tap madlouse/ghostty` 刷新 |
+| Homebrew 安装后缺少最新 `bootstrap` / `verify` 修复 | tap 包仍指向上一个 release tag，尚未包含 `main` 最新提交 | 改用手动克隆：`git clone ... && bash setup/bootstrap.sh` |
 | `.zshrc` 恢复后与原机器不同 | 安装前本机有自定义内容未迁移 | 把自定义内容放入 `~/.zshrc.local`，再 `bash bootstrap.sh --force` |
 | Ghostty theme 不生效 | `copy-on-select = clipboard` 与 Cmux 冲突 | `sed -i '' 's/copy-on-select = clipboard/copy-on-select = false/' ~/.config/ghostty/config` |
 | API keys 未配置 | `~/.env.local` 是模板，需手动填写 | `vim ~/.env.local` |
