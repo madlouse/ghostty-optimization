@@ -93,7 +93,8 @@ install_via_brewfile() {
     fi
 
     # brew bundle install 本身幂等：已装过的包跳过
-    if brew bundle install --file="$BACKUP_DIR/Brewfile" --no-lock 2>&1 | tail -20; then
+    # 现代 Homebrew 已不再支持旧的 --no-lock 参数。
+    if brew bundle install --file="$BACKUP_DIR/Brewfile"; then
         info "Brewfile 安装完成"
     else
         warn "部分包安装失败，继续部署配置..."
