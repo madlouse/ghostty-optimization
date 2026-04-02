@@ -295,4 +295,7 @@ main() {
     verify
 }
 
-main "$@"
+# Only invoke main when executed directly (not when sourced for unit tests)
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+  main "$@"
+fi

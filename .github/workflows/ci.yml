@@ -1,0 +1,58 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  # ============================================================
+  # Job 1: bootstrap.sh 单元测试 (bats-core)
+  # ============================================================
+  unit-tests:
+    name: Unit Tests (bats-core)
+    runs-on: macos-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install bats-core
+        run: brew install bats-core
+
+      - name: Run unit tests
+        run: bats tests/bootstrap.bats
+
+  # ============================================================
+  # Job 2: 配置文件校验
+  # ============================================================
+  validate-configs:
+    name: Validate Configs
+    runs-on: macos-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Ghostty (for config validation)
+        run: |
+          brew tap madlouse/ghostty https://github.com/madlouse/homebrew-ghostty || true
+          brew install ghostty || true
+
+      - name: Install Starship (for TOML validation)
+        run: brew install starship || true
+
+      - name: Validate config files
+        run: bash .github/scripts/validate-configs.sh
+
+  # ============================================================
+  # Job 3: bootstrap --dry-run 端到端验证
+  # ============================================================
+  dry-run:
+    name: Bootstrap Dry Run
+    runs-on: macos-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run bootstrap dry-run
+        run: bash setup/bootstrap.sh --dry-run
