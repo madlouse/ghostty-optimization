@@ -23,9 +23,12 @@ teardown_isolated_home() {
 }
 
 # ---- Mock brew ----
+# mock_brew_installed 通过在 bash -c 命令字符串中注入 `export PATH`
+# 来使子进程找到 mock（_source helper 已在命令内 export PATH）
+# 此函数只需确保 mock 可执行文件存在
 mock_brew_installed() {
   mkdir -p "$BATS_TEST_TMPDIR/bin"
-  cat > "$BATS_TEST_TMPDIR/bin/brew" << 'MOCK'
+  cat > "$BATS_TEST_TMPDIR/bin/brew" << 'MOCKBREW'
 #!/usr/bin/env bash
 case "$1" in
   --version) echo "Homebrew 4.0.0" ;;
@@ -33,9 +36,8 @@ case "$1" in
   bundle)     exit 0 ;;
   *)          exit 0 ;;
 esac
-MOCK
+MOCKBREW
   chmod +x "$BATS_TEST_TMPDIR/bin/brew"
-  export PATH="$BATS_TEST_TMPDIR/bin:$PATH"
 }
 
 mock_brew_not_installed() {
@@ -83,25 +85,24 @@ setup_fixtures() {
 }
 
 # ---- run_bootstrap_fn: 在隔离环境中 source bootstrap 并调用指定函数 ----
+# 关键：PATH 必须在 bash -c 命令内 export，否则子进程找不到 mock brew
+# 方案：把 PATH 拼接好放在 bash -c "export PATH=...; ..." 字符串里
 run_bootstrap_fn() {
   local fn_name="$1"; shift
-  # 覆盖 BACKUP_DIR 指向 fixture
+  local _brew_path="PATH=$BATS_TEST_TMPDIR/bin:\$PATH"
+  # shellcheck disable=SC2086
   BACKUP_DIR="$BATS_TEST_TMPDIR/backup" \
   BACKUP_USER="$BATS_TEST_TMPDIR/backup-user" \
   DRY_RUN=false \
-    bash -c "
-      source '$REPO_ROOT/setup/bootstrap.sh'
-      $fn_name $*
-    " 2>&1
+    bash -c "$_brew_path; source '$REPO_ROOT/setup/bootstrap.sh'; $fn_name $*" 2>&1
 }
 
 run_bootstrap_fn_dry() {
   local fn_name="$1"; shift
+  local _brew_path="PATH=$BATS_TEST_TMPDIR/bin:\$PATH"
+  # shellcheck disable=SC2086
   BACKUP_DIR="$BATS_TEST_TMPDIR/backup" \
   BACKUP_USER="$BATS_TEST_TMPDIR/backup-user" \
   DRY_RUN=true \
-    bash -c "
-      source '$REPO_ROOT/setup/bootstrap.sh'
-      $fn_name $*
-    " 2>&1
+    bash -c "$_brew_path; source '$REPO_ROOT/setup/bootstrap.sh'; $fn_name $*" 2>&1
 }

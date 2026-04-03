@@ -88,15 +88,59 @@ install_via_brewfile() {
     fi
 
     # Tap Cmux（幂等：重复 tap 无害）
-    if ! brew tap | grep -q "manaflow-ai/cmux"; then
+    if brew tap 2>/dev/null | grep -q "manaflow-ai/cmux"; then
+        MANAFLOW_TAP_CHECK=0
+    else
+        MANAFLOW_TAP_CHECK=1
+    fi
+    if [[ $MANAFLOW_TAP_CHECK -ne 0 ]]; then
         brew tap manaflow-ai/cmux
     fi
 
-    # brew bundle install 本身幂等：已装过的包跳过
-    if brew bundle install --file="$BACKUP_DIR/Brewfile" --no-lock 2>&1 | tail -20; then
-        info "Brewfile 安装完成"
+    # 核心栈：缺少任一这些则退出
+    CORE_PACKAGES="ghostty cmux zed"
+
+    # 捕获 brew bundle 的真实 exit code
+    # 注意：brew bundle 必须在 set +e 子 shell 中运行，
+    # 因为 brew 命令找不到时 exit 127 会触发外部 set -e 退出函数
+    local exit_code
+    local output
+    output=$(bash -c 'set +e; brew bundle install --file="$1" 2>&1; printf "\n__brew_exit__:%d" $?' -- "$BACKUP_DIR/Brewfile")
+    exit_code="${output##*__brew_exit__:}"
+    output="${output%%__brew_exit__:*}"
+
+    # 把输出展示出来（人类可见）
+    # 使用 || true 防止 grep -v "^$" 在空输出时返回 1（触发 set -e 退出）
+    echo "$output" | grep -v "^$" | sed 's/^/   /' || true
+
+    # 解析：brew bundle 失败 还是 只部分包失败
+    if [[ $exit_code -ne 0 ]]; then
+        # brew bundle 输出 "Failed: <pkg>\n\n"（两个换行：echo 本身 + printf 末尾）。
+        # 去掉尾部换行和空格（bash 3.2 + set -uo pipefail 兼容）。
+        _after="${output##*Failed: }"
+        failed_packages="$_after"
+        while true; do
+            last="${failed_packages: -1}"
+            [[ -n "$last" ]] || break
+            ord=$(printf '%d' "'$last")
+            [[ $ord -eq 10 || $ord -eq 32 ]] || break
+            failed_packages="${failed_packages%?}"
+        done
+        # 判断 core_missing：直接在 case 中比较
+        _has_core=0
+        case "$failed_packages" in
+            *ghostty*) _has_core=1 ;;
+            *cmux*)    _has_core=1 ;;
+            *zed*)     _has_core=1 ;;
+        esac
+        if [[ $_has_core -eq 1 ]]; then
+            echo "FATAL: core missing"
+            exit 1
+        else
+            warn "部分可选包安装失败($failed_packages)，继续部署配置..."
+        fi
     else
-        warn "部分包安装失败，继续部署配置..."
+        info "Brewfile 安装完成"
     fi
 }
 
