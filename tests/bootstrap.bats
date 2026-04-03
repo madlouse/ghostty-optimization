@@ -27,13 +27,15 @@ teardown() {
 # Sets BACKUP_DIR and BACKUP_USER from test fixtures AFTER source
 _source() {
   local dry="${1:-false}"
-  echo "
-    source '$REPO_ROOT/setup/bootstrap.sh'
-    BACKUP_DIR='$BATS_TEST_TMPDIR/backup'
-    BACKUP_USER='$BATS_TEST_TMPDIR/backup-user'
-    DRY_RUN=$dry
-    HOME='$HOME'
-  "
+  # NOTE: PATH is NOT set here. Tests that need mock brew must prepend
+  # PATH='$BATS_TEST_TMPDIR/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin'
+  # before calling _source(). This avoids polluting tests that need a
+  # specific PATH (e.g. no-brew test).
+  echo "source '$REPO_ROOT/setup/bootstrap.sh'; \
+BACKUP_DIR='$BATS_TEST_TMPDIR/backup'; \
+BACKUP_USER='$BATS_TEST_TMPDIR/backup-user'; \
+DRY_RUN=$dry; \
+HOME='$HOME' "
 }
 
 # ===========================================================
@@ -53,7 +55,7 @@ _source() {
 
 @test "prerequisites: brew already installed skips install" {
   run bash -c "
-    PATH='$BATS_TEST_TMPDIR/bin:$PATH'
+    PATH='$BATS_TEST_TMPDIR/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin'
     $(_source)
     check_prerequisites
   "
@@ -64,7 +66,7 @@ _source() {
 @test "prerequisites: missing Brewfile exits with error" {
   rm -f "$BATS_TEST_TMPDIR/backup/Brewfile"
   run bash -c "
-    PATH='$BATS_TEST_TMPDIR/bin:$PATH'
+    PATH='$BATS_TEST_TMPDIR/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin'
     $(_source)
     check_prerequisites
   "
@@ -75,7 +77,7 @@ _source() {
 @test "prerequisites: missing ghostty-config exits with error" {
   rm -f "$BATS_TEST_TMPDIR/backup/ghostty-config"
   run bash -c "
-    PATH='$BATS_TEST_TMPDIR/bin:$PATH'
+    PATH='$BATS_TEST_TMPDIR/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin'
     $(_source)
     check_prerequisites
   "
@@ -100,7 +102,7 @@ _source() {
 
 @test "brewfile: dry-run only prints, does not install" {
   run bash -c "
-    PATH='$BATS_TEST_TMPDIR/bin:$PATH'
+    PATH='$BATS_TEST_TMPDIR/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin'
     $(_source true)
     install_via_brewfile
   "
@@ -110,7 +112,7 @@ _source() {
 
 @test "brewfile: success reports completion" {
   run bash -c "
-    PATH='$BATS_TEST_TMPDIR/bin:$PATH'
+    PATH='$BATS_TEST_TMPDIR/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin'
     $(_source)
     install_via_brewfile
   "
@@ -118,22 +120,65 @@ _source() {
   [[ "$output" == *"Brewfile"* ]]
 }
 
-@test "brewfile: brew bundle failure warns and continues" {
+@test "brewfile: brew bundle failure warns and continues (optional pkg)" {
+  # Mock brew: bundle fails for optional package, no core pkg missing
+  # Homebrew bundle output format: "Failed: <pkgname>"
+  # Replace mock brew in PATH with failure-on-bundle variant
   cat > "$BATS_TEST_TMPDIR/bin/brew" << 'MOCK'
 #!/usr/bin/env bash
 case "$1" in
-  tap)    exit 0 ;;
-  bundle) echo "some error"; exit 1 ;;
+  tap)    echo "manaflow-ai/cmux" ;;
+  bundle) echo "Failed: mysql@8.4"; exit 1 ;;
   *)      exit 0 ;;
 esac
 MOCK
   chmod +x "$BATS_TEST_TMPDIR/bin/brew"
+
+  # Run bootstrap via bash -c with explicit PATH (system dirs explicit, no $PATH ref)
   run bash -c "
-    PATH='$BATS_TEST_TMPDIR/bin:$PATH'
-    $(_source)
+    PATH='$BATS_TEST_TMPDIR/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin'
+    source '$REPO_ROOT/setup/bootstrap.sh'
+    BACKUP_DIR='$BATS_TEST_TMPDIR/backup'
+    BACKUP_USER='$BATS_TEST_TMPDIR/backup-user'
+    DRY_RUN=false
+    HOME='$HOME'
     install_via_brewfile
   "
-  [[ "$output" == *"失败"* ]] || [[ "$output" == *"failed"* ]] || [[ "$output" == *"部分"* ]]
+  # Should exit 0 (continues), warns about optional failure
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"可选"* ]] || [[ "$output" == *"失败"* ]]
+}
+
+@test "brewfile: brew bundle failure exits if core pkg missing" {
+  # Mock brew: bundle fails for ghostty (core pkg)
+  # Homebrew bundle output format: "Failed: <pkgname>"
+  cat > "$BATS_TEST_TMPDIR/bin/brew" << 'MOCK'
+#!/usr/bin/env bash
+case "$1" in
+  tap)    echo "manaflow-ai/cmux" ;;
+  bundle) echo "Failed: ghostty"; exit 1 ;;
+  *)      exit 0 ;;
+esac
+MOCK
+  chmod +x "$BATS_TEST_TMPDIR/bin/brew"
+
+  local script="$BATS_TEST_TMPDIR/run_test_$$"
+  cat > "$script" << SCRIPT
+#!/usr/bin/env bash
+PATH='$BATS_TEST_TMPDIR/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin'
+source '$REPO_ROOT/setup/bootstrap.sh'
+BACKUP_DIR='$BATS_TEST_TMPDIR/backup'
+BACKUP_USER='$BATS_TEST_TMPDIR/backup-user'
+DRY_RUN=false
+HOME='$HOME'
+install_via_brewfile
+SCRIPT
+  chmod +x "$script"
+  run "$script"
+  rm -f "$script"
+  # Should exit 1 (core pkg missing = fatal)
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"ghostty"* ]]
 }
 
 # ===========================================================
@@ -388,7 +433,7 @@ MOCK
   # The verify function checks for cmux/ghostty/zed/starship/fastfetch/btop
   # We don't mock them, so command -v will fail for each — verify should still return 0
   run bash -c "
-    PATH='$BATS_TEST_TMPDIR/bin:$(echo "$PATH" | tr ':' '\n' | grep -vE 'homebrew|cmux|ghostty|zed|starship' | tr '\n' ':' | sed 's/:$//')'
+    PATH='$BATS_TEST_TMPDIR/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin'
     $(_source)
     verify
   "
@@ -400,7 +445,7 @@ MOCK
   mock_command "fastfetch" "exit 0"
   mock_command "btop"      "exit 0"
   run bash -c "
-    PATH='$BATS_TEST_TMPDIR/bin:$PATH'
+    PATH='$BATS_TEST_TMPDIR/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin'
     $(_source)
     verify
   "
@@ -442,7 +487,7 @@ MOCK
   before="$(find "$HOME" -type f | sort)"
 
   run bash -c "
-    PATH='$BATS_TEST_TMPDIR/bin:$PATH'
+    PATH='$BATS_TEST_TMPDIR/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin'
     HOME='$HOME'
     BACKUP_DIR='$BATS_TEST_TMPDIR/backup'
     bash '$REPO_ROOT/setup/bootstrap.sh' --dry-run
