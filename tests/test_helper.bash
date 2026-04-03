@@ -62,6 +62,27 @@ mock_command_missing() {
   : # 什么都不创建，command -v 会找不到
 }
 
+# ---- Mock defaults ----
+# mock_defaults 将 defaults 写入 $BATS_TEST_TMPDIR/.defaults_state
+# 用法: mock_defaults [initial_value]
+# 写入: defaults write com.cmuxterm.app socketControlMode -string <value>
+mock_defaults() {
+  local initial="${1:-}"
+  echo "$initial" > "$BATS_TEST_TMPDIR/.defaults_state"
+  cat > "$BATS_TEST_TMPDIR/bin/defaults" << MOCKDEFAULTS
+#!/usr/bin/env bash
+case "\$1,\$2" in
+  read,com.cmuxterm.app)
+    cat "$BATS_TEST_TMPDIR/.defaults_state"
+    ;;
+  write,com.cmuxterm.app)
+    echo "\$4" > "$BATS_TEST_TMPDIR/.defaults_state"
+    ;;
+esac
+MOCKDEFAULTS
+  chmod +x "$BATS_TEST_TMPDIR/bin/defaults"
+}
+
 # ---- 创建最小 fixture ----
 setup_fixtures() {
   # 确保 backup/ 里的必要文件存在（测试用临时副本）
@@ -85,23 +106,35 @@ setup_fixtures() {
 # ---- run_bootstrap_fn: 在隔离环境中 source bootstrap 并调用指定函数 ----
 run_bootstrap_fn() {
   local fn_name="$1"; shift
-  # 覆盖 BACKUP_DIR 指向 fixture
+  # Must use bats' `run` so $status and $output are set for test assertions.
+  # set +eu prevents bootstrap.sh's set -eu from crashing on BASH_SOURCE[0] in subprocess.
+  # PATH uses line-continuation (backslash before newline) so bash receives
+  # PATH="mock_bin:$PATH" — NOT \$PATH in double quotes (zsh passes it literally).
   BACKUP_DIR="$BATS_TEST_TMPDIR/backup" \
   BACKUP_USER="$BATS_TEST_TMPDIR/backup-user" \
   DRY_RUN=false \
-    bash -c "
-      source '$REPO_ROOT/setup/bootstrap.sh'
-      $fn_name $*
-    " 2>&1
+    run bash -c 'set +eu
+      BACKUP_DIR="'"$BATS_TEST_TMPDIR/backup"'"
+      BACKUP_USER="'"$BATS_TEST_TMPDIR/backup-user"'"
+      DRY_RUN=false
+      PATH="'"$BATS_TEST_TMPDIR/bin"':$PATH"
+      source '"$REPO_ROOT/setup/bootstrap.sh"'
+      '"$fn_name"' '"$*"'
+    '
 }
 
 run_bootstrap_fn_dry() {
   local fn_name="$1"; shift
+  # NOTE: DRY_RUN must be set AFTER sourcing bootstrap.sh (which hardcodes DRY_RUN=false).
+  # We use two separate bash -c commands: first source, then set DRY_RUN and call fn.
   BACKUP_DIR="$BATS_TEST_TMPDIR/backup" \
   BACKUP_USER="$BATS_TEST_TMPDIR/backup-user" \
-  DRY_RUN=true \
-    bash -c "
-      source '$REPO_ROOT/setup/bootstrap.sh'
-      $fn_name $*
-    " 2>&1
+    run bash -c 'set +eu
+      BACKUP_DIR="'"$BATS_TEST_TMPDIR/backup"'"
+      BACKUP_USER="'"$BATS_TEST_TMPDIR/backup-user"'"
+      DRY_RUN=false
+      PATH="'"$BATS_TEST_TMPDIR/bin"':$PATH"
+      source '"$REPO_ROOT/setup/bootstrap.sh"'
+      DRY_RUN=true '"$fn_name"' '"$*"'
+    '
 }

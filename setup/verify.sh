@@ -129,6 +129,22 @@ for app in Ghostty Zed Cmux; do
         || check "$app — 未安装" "FAIL"
 done
 
+# ── 4b. Cmux Socket Mode ─────────────────────────
+echo ""
+echo "【4b. Cmux Socket】"
+if [[ -d "/Applications/cmux.app" ]]; then
+    socket_mode=$(defaults read com.cmuxterm.app socketControlMode 2>/dev/null || echo "")
+    if [[ "$socket_mode" == "automation" ]]; then
+        check "socketControlMode = automation" "PASS"
+    elif [[ -z "$socket_mode" ]]; then
+        check "socketControlMode 未设置（应为 automation）" "FAIL"
+    else
+        check "socketControlMode = $socket_mode（应为 automation）" "FAIL"
+    fi
+else
+    check "cmux 未安装（跳过 socket 检查）" "SKIP"
+fi
+
 # ── 5. 幂等标记（确认 bootstrap 成功） ───────────
 echo ""
 echo "【5. 部署状态】"
