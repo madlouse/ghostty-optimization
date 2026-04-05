@@ -76,7 +76,8 @@ case "\$1,\$2" in
     cat "$BATS_TEST_TMPDIR/.defaults_state"
     ;;
   write,com.cmuxterm.app)
-    echo "\$4" > "$BATS_TEST_TMPDIR/.defaults_state"
+    # defaults write ... -string <value>: $1=write $2=domain $3=key $4=-string $5=<value>
+    echo "\$5" > "$BATS_TEST_TMPDIR/.defaults_state"
     ;;
 esac
 MOCKDEFAULTS

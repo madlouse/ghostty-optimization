@@ -1,6 +1,10 @@
-# AgenticOS 项目元数据 — 由 AgenticOS MCP 管理，已纳入仓库
-# .context/, .project.yaml 由 agenticos_record/save 自动维护
-# 不要手动编辑 .context/，通过 agenticos MCP 工具操作
+# AgenticOS 项目元数据 — 由 AgenticOS MCP 管理
+# .context/ 由 agenticos_record/save 自动维护
+# .context/conversations/ 包含自动生成的会话记录，禁止提交
+.context/
+!.context/state.yaml
+# .project.yaml 等其他 AgenticOS 生成文件
+.project.yaml
 
 # macOS 缓存
 .DS_Store

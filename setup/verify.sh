@@ -124,7 +124,9 @@ done
 echo ""
 echo "【4. 应用程序】"
 for app in Ghostty Zed Cmux; do
-    ls "/Applications/${app}.app" &>/dev/null \
+    # Cmux is installed as cmux.app (lowercase) by the manaflow-ai/cmux cask
+    [[ "$app" == "Cmux" ]] && app_lower="cmux" || app_lower="$app"
+    ls "/Applications/${app_lower}.app" &>/dev/null \
         && check "$app — 已安装" "PASS" \
         || check "$app — 未安装" "FAIL"
 done
