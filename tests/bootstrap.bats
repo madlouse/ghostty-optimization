@@ -494,16 +494,27 @@ MOCK_CMUX
   chmod +x "$BATS_TEST_TMPDIR/bin/cmux"
 }
 
-@test "configure_cmux_socket: cmux not installed skips" {
-  # This machine has cmux installed, so we verify the skip is NOT shown
-  # and instead confirm the function handles the real defaults gracefully.
+@test "configure_cmux_socket: cmux installed but defaults unset: no crash, sets automation" {
   # Key assertion: no unbound variable error (the original bug this fixed).
+  # Use _setup_cmux_socket_env to mock defaults/cmux so the test is hermetic
+  # and does not depend on the host machine having cmux installed.
+  _setup_cmux_socket_env
+  # Create fake cmux.app so the function enters its logic path.
+  # Must be in /Applications (not a subdir of $BATS_TEST_TMPDIR) to match
+  # the hard-coded path check in configure_cmux_socket().
+  mkdir -p "/Applications/cmux.app"
+  # defaults state is empty (not set) — triggers "未设置" path
+  echo "" > "$BATS_TEST_TMPDIR/.defaults_state"
+
   run_bootstrap_fn configure_cmux_socket
   [ "$status" -eq 0 ]
   # Must not crash with unbound variable
   [[ "$output" != *"unbound variable"* ]]
-  # Should report the real current mode (allowAll on this machine)
-  [[ "$output" == *"socketControlMode"* ]]
+  # Should report that mode is not set and write automation
+  [[ "$output" == *"socketControlMode 未设置"* ]]
+  [[ "$output" == *"设为 automation"* ]]
+  # Verify defaults write was called with automation
+  [[ "$(cat "$BATS_TEST_TMPDIR/.defaults_state")" == "automation" ]]
 }
 
 @test "configure_cmux_socket: already automation reports success" {
