@@ -251,9 +251,12 @@ configure_cmux_socket() {
         if [[ "$DRY_RUN" == "true" ]]; then
             echo "   [dry-run] 跳过写入 defaults"
         else
-            defaults write com.cmuxterm.app socketControlMode -string automation 2>/dev/null \
-                && info "socketControlMode 已设为 automation" \
-                || error "写入 socketControlMode 失败"
+            if defaults write com.cmuxterm.app socketControlMode -string automation 2>/dev/null; then
+                info "socketControlMode 已设为 automation"
+            else
+                error "写入 socketControlMode 失败"
+                return 1
+            fi
         fi
     fi
 

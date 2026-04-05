@@ -506,6 +506,7 @@ MOCK_CMUX
   # /Applications/cmux.app so we don't write to the host filesystem.
   # /bin/cp and /bin/mkdir are available in the bash subprocess PATH.
   run bash -c 'set +eu
+    cd "'"$BATS_TEST_TMPDIR"'"
     BACKUP_DIR="'"$BATS_TEST_TMPDIR/backup"'"
     BACKUP_USER="'"$BATS_TEST_TMPDIR/backup-user"'"
     DRY_RUN=false
@@ -534,7 +535,22 @@ MOCK_CMUX
   # pre-set automation
   echo "automation" > "$BATS_TEST_TMPDIR/.defaults_state"
 
-  run_bootstrap_fn configure_cmux_socket
+  # Patch bootstrap.sh in $BATS_TEST_TMPDIR to redirect /Applications/cmux.app
+  # so this test doesn't depend on the host having cmux installed.
+  run bash -c 'set +eu
+    cd "'"$BATS_TEST_TMPDIR"'"
+    mkdir -p "'"$BATS_TEST_TMPDIR/cmux.app"'"
+    cp "'"$REPO_ROOT/setup/bootstrap.sh"'" bootstrap.sh.tmp \
+      && sed "s|/Applications/cmux.app|"$BATS_TEST_TMPDIR/cmux.app"|g" bootstrap.sh.tmp \
+         > bootstrap.sh.patched \
+      && mv bootstrap.sh.patched bootstrap.sh \
+      && rm bootstrap.sh.tmp
+    BACKUP_DIR="'"$BATS_TEST_TMPDIR/backup"'" \
+    BACKUP_USER="'"$BATS_TEST_TMPDIR/backup-user"'" \
+    DRY_RUN=false \
+    PATH="'"$BATS_TEST_TMPDIR/bin"':$PATH" \
+      bash -c "source bootstrap.sh && configure_cmux_socket"
+  '
   [ "$status" -eq 0 ]
   [[ "$output" == *"socketControlMode = automation"* ]]
   [[ "$output" == *"✓"* ]]
@@ -544,7 +560,21 @@ MOCK_CMUX
   _setup_cmux_socket_env
   # .defaults_state is empty (not set)
 
-  run_bootstrap_fn configure_cmux_socket
+  # Patch bootstrap.sh to redirect /Applications/cmux.app → $BATS_TEST_TMPDIR/cmux.app
+  run bash -c 'set +eu
+    cd "'"$BATS_TEST_TMPDIR"'"
+    mkdir -p "'"$BATS_TEST_TMPDIR/cmux.app"'"
+    cp "'"$REPO_ROOT/setup/bootstrap.sh"'" bootstrap.sh.tmp \
+      && sed "s|/Applications/cmux.app|"$BATS_TEST_TMPDIR/cmux.app"|g" bootstrap.sh.tmp \
+         > bootstrap.sh.patched \
+      && mv bootstrap.sh.patched bootstrap.sh \
+      && rm bootstrap.sh.tmp
+    BACKUP_DIR="'"$BATS_TEST_TMPDIR/backup"'" \
+    BACKUP_USER="'"$BATS_TEST_TMPDIR/backup-user"'" \
+    DRY_RUN=false \
+    PATH="'"$BATS_TEST_TMPDIR/bin"':$PATH" \
+      bash -c "source bootstrap.sh && configure_cmux_socket"
+  '
   [ "$status" -eq 0 ]
   [[ "$output" == *"socketControlMode 未设置"* ]]
   [[ "$output" == *"设为 automation"* ]]
@@ -555,10 +585,21 @@ MOCK_CMUX
   _setup_cmux_socket_env
   # .defaults_state is empty
 
-  # _setup_cmux_socket_env creates the mock defaults/cmux in $BATS_TEST_TMPDIR/bin.
-  # run_bootstrap_fn_dry prepends that dir to PATH in the bash subprocess,
-  # then sources bootstrap.sh and calls configure_cmux_socket with DRY_RUN=true.
-  run_bootstrap_fn_dry configure_cmux_socket
+  # Patch bootstrap.sh to redirect /Applications/cmux.app → $BATS_TEST_TMPDIR/cmux.app
+  # DRY_RUN=true set AFTER source so bootstrap.sh's DRY_RUN=false is overwritten.
+  run bash -c 'set +eu
+    cd "'"$BATS_TEST_TMPDIR"'"
+    mkdir -p "'"$BATS_TEST_TMPDIR/cmux.app"'"
+    cp "'"$REPO_ROOT/setup/bootstrap.sh"'" bootstrap.sh.tmp \
+      && sed "s|/Applications/cmux.app|"$BATS_TEST_TMPDIR/cmux.app"|g" bootstrap.sh.tmp \
+         > bootstrap.sh.patched \
+      && mv bootstrap.sh.patched bootstrap.sh \
+      && rm bootstrap.sh.tmp
+    BACKUP_DIR="'"$BATS_TEST_TMPDIR/backup"'" \
+    BACKUP_USER="'"$BATS_TEST_TMPDIR/backup-user"'" \
+    PATH="'"$BATS_TEST_TMPDIR/bin"':$PATH" \
+      bash -c "set +eu; source bootstrap.sh && DRY_RUN=true configure_cmux_socket"
+  '
 
   # .defaults_state should still be empty (dry-run doesn't write)
   [[ "$(cat "$BATS_TEST_TMPDIR/.defaults_state")" == "" ]]
