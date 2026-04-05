@@ -20,6 +20,11 @@ jobs:
       - name: Install bats-core
         run: brew install bats-core
 
+      - name: Install cmux (for socket tests)
+        run: |
+          brew tap manaflow-ai/cmux || true
+          brew install manaflow-ai/cmux/cmux || true
+
       - name: Run unit tests
         run: bats tests/bootstrap.bats
 
