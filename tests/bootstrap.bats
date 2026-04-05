@@ -499,14 +499,26 @@ MOCK_CMUX
   # Use _setup_cmux_socket_env to mock defaults/cmux so the test is hermetic
   # and does not depend on the host machine having cmux installed.
   _setup_cmux_socket_env
-  # Create fake cmux.app so the function enters its logic path.
-  # Must be in /Applications (not a subdir of $BATS_TEST_TMPDIR) to match
-  # the hard-coded path check in configure_cmux_socket().
-  mkdir -p "/Applications/cmux.app"
   # defaults state is empty (not set) — triggers "未设置" path
   echo "" > "$BATS_TEST_TMPDIR/.defaults_state"
 
-  run_bootstrap_fn configure_cmux_socket
+  # Patch bootstrap.sh in-place to use $BATS_TEST_TMPDIR/cmux.app instead of
+  # /Applications/cmux.app so we don't write to the host filesystem.
+  # /bin/cp and /bin/mkdir are available in the bash subprocess PATH.
+  run bash -c 'set +eu
+    BACKUP_DIR="'"$BATS_TEST_TMPDIR/backup"'"
+    BACKUP_USER="'"$BATS_TEST_TMPDIR/backup-user"'"
+    DRY_RUN=false
+    PATH="'"$BATS_TEST_TMPDIR/bin"':$PATH"
+    mkdir -p "'"$BATS_TEST_TMPDIR/cmux.app"'"
+    cp "'"$REPO_ROOT/setup/bootstrap.sh"'" bootstrap.sh.tmp \
+      && sed "s|/Applications/cmux.app|"$BATS_TEST_TMPDIR/cmux.app"|g" bootstrap.sh.tmp \
+         > bootstrap.sh.patched \
+      && mv bootstrap.sh.patched bootstrap.sh \
+      && rm bootstrap.sh.tmp
+    source bootstrap.sh
+    configure_cmux_socket
+  '
   [ "$status" -eq 0 ]
   # Must not crash with unbound variable
   [[ "$output" != *"unbound variable"* ]]
