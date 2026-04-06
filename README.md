@@ -32,6 +32,9 @@
 # 新电脑，一行命令搞定
 brew tap madlouse/ghostty https://github.com/madlouse/homebrew-ghostty
 brew install ghostty-cmux
+
+# 之后同步最新配置
+ghostty-cmux-sync
 ```
 
 或手动运行（直接克隆本仓库）：
@@ -39,7 +42,7 @@ brew install ghostty-cmux
 ```bash
 git clone https://github.com/madlouse/ghostty-optimization.git ~/dev/ghostty-optimization
 cd ~/dev/ghostty-optimization
-bash setup/bootstrap.sh
+bash setup/sync.sh
 ```
 
 ## 文件结构
@@ -76,13 +79,16 @@ current-config/              # Ghostty 当前配置备份
 
 ```bash
 open -a Cmux              # 启动 Cmux
-cw myproject              # 新建 Workspace
+cw .                      # 为当前目录新建 Workspace
+cw ~/dev/myproject        # 为指定目录新建 Workspace
 cc                        # 右侧分屏 + 启动 Claude Code
-cb https://docs.example.com  # 内置浏览器
+cb https://docs.example.com  # 在当前 Workspace 打开内置浏览器
 
 zed .                     # 打开当前目录
 zed file.py               # 打开文件
 ```
+
+`cw` 可以从普通 shell 或 Cmux 终端运行；`cc` / `cb` 需要在 Cmux 终端内运行，因为它们会操作当前 workspace。
 
 ### 模式 B: 轻量独立 (Ghostty)
 
@@ -121,7 +127,8 @@ cp ~/.claude/hooks/cmux-notify-hook.sh setup/backup/claude-hooks/
 git add -A && git commit -m "sync: update configs" && git push
 ```
 
-之后在新电脑上 `brew upgrade ghostty-cmux` 即可拉取最新配置。
+Homebrew formula 只负责发放 bootstrap / sync 入口；最新配置通过 `ghostty-cmux-sync` 或 `bash setup/sync.sh` 从 `main` 分支快照拉取。
+这意味着日常配置更新不再依赖每次都 bump formula release。
 
 ## 安装验证
 

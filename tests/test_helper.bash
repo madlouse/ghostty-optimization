@@ -62,6 +62,43 @@ mock_command_missing() {
   : # 什么都不创建，command -v 会找不到
 }
 
+mock_cmux_helper_cli() {
+  mkdir -p "$BATS_TEST_TMPDIR/bin"
+  cat > "$BATS_TEST_TMPDIR/bin/cmux" << 'MOCK'
+#!/usr/bin/env bash
+set -euo pipefail
+
+log_file="${CMUX_TEST_LOG:?}"
+if [[ $# -gt 0 ]]; then
+  {
+    printf '%q ' "$@"
+    printf '\n'
+  } >> "$log_file"
+fi
+
+case "${1:-}" in
+  identify)
+    cat <<'EOF'
+{
+  "focused" : {
+    "workspace_ref" : "workspace:1",
+    "surface_ref" : "surface:9"
+  },
+  "caller" : {
+    "workspace_ref" : "workspace:1",
+    "surface_ref" : "surface:1"
+  }
+}
+EOF
+    ;;
+  *)
+    ;;
+esac
+MOCK
+  chmod +x "$BATS_TEST_TMPDIR/bin/cmux"
+  export PATH="$BATS_TEST_TMPDIR/bin:$PATH"
+}
+
 # ---- 创建最小 fixture ----
 setup_fixtures() {
   # 确保 backup/ 里的必要文件存在（测试用临时副本）
@@ -104,4 +141,33 @@ run_bootstrap_fn_dry() {
       source '$REPO_ROOT/setup/bootstrap.sh'
       $fn_name $*
     " 2>&1
+}
+
+create_sync_fixture_tree() {
+  local fixture_root="$BATS_TEST_TMPDIR/sync-fixture"
+
+  rm -rf "$fixture_root"
+  mkdir -p "$fixture_root/setup"
+
+  cat > "$fixture_root/setup/bootstrap.sh" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+printf '%s %s\n' "$0" "$*" > "${GHOSTTY_CMUX_BOOTSTRAP_LOG:?}"
+EOF
+  chmod +x "$fixture_root/setup/bootstrap.sh"
+
+  echo "$fixture_root"
+}
+
+create_sync_archive_fixture() {
+  local fixture_root="$1"
+  local staging_root="$BATS_TEST_TMPDIR/sync-archive-root"
+  local archive_path="$BATS_TEST_TMPDIR/ghostty-optimization-main.tar.gz"
+
+  rm -rf "$staging_root"
+  mkdir -p "$staging_root/ghostty-optimization-main"
+  cp -R "$fixture_root"/. "$staging_root/ghostty-optimization-main/"
+  tar -czf "$archive_path" -C "$staging_root" ghostty-optimization-main
+
+  echo "$archive_path"
 }

@@ -2,34 +2,76 @@
 # >>> ghostty-cmux-zed setup >>>
 # AI 编程终端栈集成
 
-# --- Cmux Shell 集成 ---
-if command -v cmux &>/dev/null; then
-    eval "$(cmux shell zsh 2>/dev/null)" || true
-fi
-
 # --- Zed 快捷别名 ---
 alias z="zed"
 alias z.="zed ."
 
 # --- Cmux 快捷函数 ---
-# 快速新建项目 Workspace
-cw() {
-    local name="${1:-$(basename "$PWD")}"
-    cmux new-workspace --name "$name" 2>/dev/null
-    echo "Workspace '$name' created"
-}
+if command -v cmux &>/dev/null; then
+    _cmux_focused_ref() {
+        local key="$1"
 
-# 在当前 workspace 右侧分屏并启动 Claude Code
-cc() {
-    cmux new-split right 2>/dev/null
-    cmux send --surface last "claude" 2>/dev/null
-    cmux send-key --surface last "Return" 2>/dev/null
-}
+        cmux identify 2>/dev/null | awk -v key="$key" '
+            /"focused"[[:space:]]*:/ { in_focused=1; next }
+            in_focused && $1 == "\"" key "\"" {
+                gsub(/[",]/, "", $3)
+                print $3
+                exit
+            }
+            in_focused && /"caller"[[:space:]]*:/ { exit }
+        '
+    }
 
-# 在 Cmux 中打开内置浏览器
-cb() {
-    local url="${1:-http://localhost:3000}"
-    cmux new-pane --type browser --url "$url" 2>/dev/null
-}
+    _cmux_require_workspace() {
+        if [[ -z "${CMUX_WORKSPACE_ID:-}" ]]; then
+            echo "This helper must be run inside a Cmux terminal." >&2
+            return 1
+        fi
+    }
+
+    # 为当前目录或指定目录创建 Workspace。
+    cw() {
+        local target="${1:-.}"
+        local cwd
+
+        if ! cwd="$(cd "$target" 2>/dev/null && pwd -P)"; then
+            echo "cw: directory not found: $target" >&2
+            return 1
+        fi
+
+        if [[ -n "${CMUX_WORKSPACE_ID:-}" ]]; then
+            cmux new-workspace --cwd "$cwd" || return 1
+        else
+            cmux "$cwd" || return 1
+        fi
+
+        echo "Workspace ready for $cwd"
+    }
+
+    # 在当前 workspace 右侧分屏并启动 Claude Code。
+    cc() {
+        local surface_ref
+
+        _cmux_require_workspace || return 1
+        cmux new-split right || return 1
+        sleep 0.1
+
+        surface_ref="$(_cmux_focused_ref surface_ref)"
+        if [[ -z "$surface_ref" ]]; then
+            echo "cc: could not find the new Cmux surface" >&2
+            return 1
+        fi
+
+        cmux send --surface "$surface_ref" "claude\n" || return 1
+    }
+
+    # 在当前 workspace 打开 Cmux 内置浏览器。
+    cb() {
+        local url="${1:-http://localhost:3000}"
+
+        _cmux_require_workspace || return 1
+        cmux new-pane --type browser --url "$url"
+    }
+fi
 
 # <<< ghostty-cmux-zed setup <<<

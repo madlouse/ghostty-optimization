@@ -113,7 +113,7 @@ backup_if_exists() {
 }
 
 # 幂等部署：仅在文件内容不一致时才覆盖
-# 返回 0=一致（跳过），1=不一致（已部署），2=不存在（已部署）
+# 返回 0=成功（无论跳过还是已部署）
 deploy_file() {
     local src="$1" dst="$2" label="$3"
     if [[ -f "$dst" ]] && diff -q "$src" "$dst" &>/dev/null; then
@@ -127,7 +127,7 @@ deploy_file() {
     mkdir -p "$(dirname "$dst")"
     cp "$src" "$dst"
     info "$label 已部署 ✓"
-    return 1
+    return 0
 }
 
 deploy_all() {
@@ -268,8 +268,8 @@ verify() {
         echo ""
         echo "  多 Agent 模式:"
         echo "    open -a Cmux"
-        echo "    cw myproject     # 新建 Workspace"
-        echo "    cc               # 启动 Claude Code"
+        echo "    cw .             # 为当前目录新建 Workspace"
+        echo "    cc               # 在当前 Cmux workspace 中分屏启动 Claude Code"
         echo "    zed .            # 编辑文件"
         echo ""
         echo "  轻量独立模式:"

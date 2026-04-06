@@ -453,3 +453,73 @@ MOCK
   after="$(find "$HOME" -type f | sort)"
   [ "$before" = "$after" ]
 }
+
+@test "e2e: bootstrap writes all managed files into isolated HOME" {
+  mock_brew_installed
+  mock_command "cmux"      "exit 0"
+  mock_command "ghostty"   "exit 0"
+  mock_command "zed"       "exit 0"
+  mock_command "starship"  "exit 0"
+  mock_command "fastfetch" "exit 0"
+  mock_command "btop"      "exit 0"
+
+  run bash -c "
+    PATH='$BATS_TEST_TMPDIR/bin:$PATH'
+    HOME='$HOME'
+    bash '$REPO_ROOT/setup/bootstrap.sh'
+  "
+  [ "$status" -eq 0 ]
+
+  [ -f "$HOME/.config/ghostty/config" ]
+  [ -f "$HOME/.config/starship.toml" ]
+  [ -f "$HOME/.config/zed/settings.json" ]
+  [ -f "$HOME/.zprofile" ]
+  [ -f "$HOME/.zshrc" ]
+  [ -f "$HOME/.env.local" ]
+  [ -f "$HOME/.zshrc.local" ]
+  [ -f "$HOME/.config/.ghostty-opt-deployed" ]
+}
+
+@test "e2e: deployed zshrc loads helpers and routes helper commands inside isolated shell" {
+  export CMUX_TEST_LOG="$BATS_TEST_TMPDIR/cmux.log"
+  : > "$CMUX_TEST_LOG"
+
+  mock_brew_installed
+  mock_cmux_helper_cli
+  mock_command "ghostty"   "exit 0"
+  mock_command "zed"       "exit 0"
+  mock_command "starship"  "exit 0"
+  mock_command "fastfetch" "exit 0"
+  mock_command "btop"      "exit 0"
+
+  run bash -c "
+    PATH='$BATS_TEST_TMPDIR/bin:$PATH'
+    HOME='$HOME'
+    bash '$REPO_ROOT/setup/bootstrap.sh'
+  "
+  [ "$status" -eq 0 ]
+
+  mkdir -p "$HOME/projects/demo"
+  run zsh -lc "
+    export HOME='$HOME'
+    export PATH='$BATS_TEST_TMPDIR/bin':\$PATH
+    export CMUX_TEST_LOG='$CMUX_TEST_LOG'
+    source '$HOME/.zshrc'
+    export PATH='$BATS_TEST_TMPDIR/bin':\$PATH
+    whence -f cw cc cb >/dev/null
+    unset CMUX_WORKSPACE_ID CMUX_SURFACE_ID
+    cw '$HOME/projects/demo'
+    export CMUX_WORKSPACE_ID='workspace:1'
+    export CMUX_SURFACE_ID='surface:1'
+    cc
+    cb 'https://example.com'
+  "
+  [ "$status" -eq 0 ]
+
+  run cat "$CMUX_TEST_LOG"
+  [[ "$output" == *"$HOME/projects/demo"* ]]
+  [[ "$output" == *"new-split right"* ]]
+  [[ "$output" == *"identify"* ]]
+  [[ "$output" == *"send --surface surface:9 \$'claude\\n'"* ]]
+  [[ "$output" == *"new-pane --type browser --url https://example.com"* ]]
+}

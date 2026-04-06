@@ -64,13 +64,14 @@ Then greet the user with: project name, last progress, current pending items, su
 ```bash
 brew tap madlouse/ghostty https://github.com/madlouse/homebrew-ghostty
 brew install ghostty-cmux
+ghostty-cmux-sync
 ```
 
 **方式 B — 手动克隆**
 ```bash
 git clone https://github.com/madlouse/ghostty-optimization.git ~/dev/ghostty-optimization
 cd ~/dev/ghostty-optimization
-bash setup/bootstrap.sh
+bash setup/sync.sh
 ```
 
 ### 验证（幂等，可重复执行）

@@ -120,18 +120,55 @@ for tool in starship fastfetch btop; do
         || check "$tool — 未安装" "FAIL"
 done
 
-# ── 4. 应用安装状态 ──────────────────────────────
+# ── 4. Cmux Helpers ──────────────────────────────
 echo ""
-echo "【4. 应用程序】"
+echo "【4. Cmux Helpers】"
+if [[ -f "$HOME/.zshrc" ]]; then
+    if grep -q "cmux shell zsh" "$HOME/.zshrc"; then
+        check ".zshrc 仍引用已移除的 cmux shell 子命令" "FAIL"
+    else
+        check ".zshrc 不再依赖 cmux shell init" "PASS"
+    fi
+
+    if grep -q "new-workspace --name" "$HOME/.zshrc"; then
+        check "cw 仍使用已移除的 --name 参数" "FAIL"
+    else
+        check "cw 使用 current cmux CLI（--cwd）" "PASS"
+    fi
+
+    if grep -qE "^[[:space:]]*cw\(\)" "$HOME/.zshrc"; then
+        check "cw helper 已部署" "PASS"
+    else
+        check "cw helper 缺失" "FAIL"
+    fi
+
+    if grep -qE "^[[:space:]]*cc\(\)" "$HOME/.zshrc"; then
+        check "cc helper 已部署" "PASS"
+    else
+        check "cc helper 缺失" "FAIL"
+    fi
+
+    if grep -qE "^[[:space:]]*cb\(\)" "$HOME/.zshrc"; then
+        check "cb helper 已部署" "PASS"
+    else
+        check "cb helper 缺失" "FAIL"
+    fi
+else
+    check ".zshrc 不存在（无法检查 Cmux helpers）" "FAIL"
+fi
+
+# ── 5. 应用安装状态 ──────────────────────────────
+echo ""
+echo "【5. 应用程序】"
 for app in Ghostty Zed Cmux; do
     ls "/Applications/${app}.app" &>/dev/null \
         && check "$app — 已安装" "PASS" \
         || check "$app — 未安装" "FAIL"
 done
 
-# ── 5. 幂等标记（确认 bootstrap 成功） ───────────
+# ── 6. 幂等标记（确认 bootstrap 成功） ───────────
 echo ""
-echo "【5. 部署状态】"
+echo "【6. 部署状态】"
 MARKER="$HOME/.config/.ghostty-opt-deployed"
 if [[ -f "$MARKER" ]]; then
     check "bootstrap 已标记完成（最后部署：$(cat "$MARKER")）" "PASS"

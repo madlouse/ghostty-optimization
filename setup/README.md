@@ -6,10 +6,11 @@
 # 方式 1: Homebrew (推荐)
 brew tap madlouse/ghostty https://github.com/madlouse/homebrew-ghostty
 brew install ghostty-cmux
+ghostty-cmux-sync
 
 # 方式 2: 手动
 git clone https://github.com/madlouse/ghostty-optimization.git ~/dev/ghostty-optimization
-bash ~/dev/ghostty-optimization/setup/bootstrap.sh
+bash ~/dev/ghostty-optimization/setup/sync.sh
 ```
 
 ## 部署流程
@@ -44,7 +45,8 @@ cp ~/.claude/hooks/cmux-notify-hook.sh setup/backup/claude-hooks/
 git add -A && git commit -m "sync configs" && git push
 ```
 
-新电脑 `brew upgrade ghostty-cmux` 即自动拉取。
+更新配置时，直接运行 `ghostty-cmux-sync`（Homebrew 安装）或 `bash setup/sync.sh`（仓库克隆安装）。
+该命令会把远端 `main` 分支快照同步到本地 managed source 目录，再从最新源码执行 `bootstrap.sh`。
 
 ## 包含的备份
 
