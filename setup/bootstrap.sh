@@ -240,12 +240,6 @@ configure_cmux_socket() {
         if [[ -n "${current_mode:-}" ]]; then
             warn "cmux socketControlMode = ${current_mode:-}（应为 automation）"
         else
-            # Real run with cmux absent: tell user it needs to be installed first.
-            # Dry-run: still show what WOULD happen after install.
-            if [[ "$DRY_RUN" != "true" ]] && ! command -v cmux &>/dev/null; then
-                skip "cmux 未安装，跳过 socket 配置"
-                return 0
-            fi
             warn "cmux socketControlMode 未设置"
         fi
         echo "   设置 socketControlMode = automation..."

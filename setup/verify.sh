@@ -142,7 +142,9 @@ done
 # ── 4b. Cmux Socket Mode ─────────────────────────
 echo ""
 echo "【4b. Cmux Socket】"
-if command -v cmux &>/dev/null; then
+# Check both: binary on PATH (e.g. custom appdir) and app bundle at default location.
+# If either is present, we can read socketControlMode from defaults.
+if command -v cmux &>/dev/null || [[ -d "/Applications/cmux.app" ]]; then
     socket_mode=$(defaults read com.cmuxterm.app socketControlMode 2>/dev/null || echo "")
     if [[ "$socket_mode" == "automation" ]]; then
         check "socketControlMode = automation" "PASS"
