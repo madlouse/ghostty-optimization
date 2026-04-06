@@ -453,3 +453,96 @@ MOCK
   after="$(find "$HOME" -type f | sort)"
   [ "$before" = "$after" ]
 }
+
+
+# ===========================================================
+# 12. Cmux Socket 配置
+# ===========================================================
+
+_setup_cmux_socket_env() {
+  # mock defaults: reads/writes socketControlMode to a temp file
+  # NOTE: use <<"MOCK" (double-quoted) so $BATS_TEST_TMPDIR expands at heredoc
+  # creation time, before the script runs as a subprocess. <<'MOCK' passes
+  # $BATS_TEST_TMPDIR literally to the subprocess where it's never defined.
+  mkdir -p "$BATS_TEST_TMPDIR/bin"
+  echo "" > "$BATS_TEST_TMPDIR/.defaults_state"
+
+  cat > "$BATS_TEST_TMPDIR/bin/defaults" << "MOCK_DEFAULTS"
+#!/usr/bin/env bash
+case "$1,$2" in
+  read,com.cmuxterm.app)
+    cat "$BATS_TEST_TMPDIR/.defaults_state"
+    ;;
+  write,com.cmuxterm.app)
+    # defaults write ... -string <value>: $1=write $2=com.cmuxterm.app
+    # $3=socketControlMode $4=-string $5=<value>
+    echo "$5" > "$BATS_TEST_TMPDIR/.defaults_state"
+    ;;
+esac
+MOCK_DEFAULTS
+  chmod +x "$BATS_TEST_TMPDIR/bin/defaults"
+
+  # mock cmux ping
+  cat > "$BATS_TEST_TMPDIR/bin/cmux" << "MOCK_CMUX"
+#!/usr/bin/env bash
+if [[ "$1" == "ping" ]]; then
+  echo "pong"
+  exit 0
+fi
+exit 0
+MOCK_CMUX
+  chmod +x "$BATS_TEST_TMPDIR/bin/cmux"
+}
+
+@test "configure_cmux_socket: cmux installed but defaults unset: no crash, sets automation" {
+  # Key assertion: no unbound variable error (the original bug this fixed).
+  # _setup_cmux_socket_env places mock cmux/defaults in $BATS_TEST_TMPDIR/bin
+  # and run_bootstrap_fn prepends that dir to PATH, so command -v cmux succeeds
+  # and the function enters its logic path without touching the host filesystem.
+  _setup_cmux_socket_env
+  # defaults state is empty (not set) — triggers "未设置" path
+  echo "" > "$BATS_TEST_TMPDIR/.defaults_state"
+
+  run_bootstrap_fn configure_cmux_socket
+  [ "$status" -eq 0 ]
+  # Must not crash with unbound variable
+  [[ "$output" != *"unbound variable"* ]]
+  # Should report that mode is not set and write automation
+  [[ "$output" == *"socketControlMode 未设置"* ]]
+  [[ "$output" == *"设为 automation"* ]]
+  # Verify defaults write was called with automation
+  [[ "$(cat "$BATS_TEST_TMPDIR/.defaults_state")" == "automation" ]]
+}
+
+@test "configure_cmux_socket: already automation reports success" {
+  _setup_cmux_socket_env
+  # pre-set automation
+  echo "automation" > "$BATS_TEST_TMPDIR/.defaults_state"
+
+  run_bootstrap_fn configure_cmux_socket
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"socketControlMode = automation"* ]]
+  [[ "$output" == *"✓"* ]]
+}
+
+@test "configure_cmux_socket: not set writes automation" {
+  _setup_cmux_socket_env
+  # .defaults_state is empty (not set)
+
+  run_bootstrap_fn configure_cmux_socket
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"socketControlMode 未设置"* ]]
+  [[ "$output" == *"设为 automation"* ]]
+  [[ "$(cat "$BATS_TEST_TMPDIR/.defaults_state")" == "automation" ]]
+}
+
+@test "configure_cmux_socket: dry-run skips writing" {
+  _setup_cmux_socket_env
+  # .defaults_state is empty
+
+  run_bootstrap_fn_dry configure_cmux_socket
+
+  # .defaults_state should still be empty (dry-run doesn't write)
+  [[ "$(cat "$BATS_TEST_TMPDIR/.defaults_state")" == "" ]]
+  [[ "$output" == *\[dry-run\]* ]]
+}

@@ -124,10 +124,38 @@ done
 echo ""
 echo "【4. 应用程序】"
 for app in Ghostty Zed Cmux; do
-    ls "/Applications/${app}.app" &>/dev/null \
-        && check "$app — 已安装" "PASS" \
-        || check "$app — 未安装" "FAIL"
+    # Cmux: check /Applications bundle first, fall back to binary on PATH
+    # (supports HOMEBREW_CASK_OPTS=--appdir installs)
+    if [[ "$app" == "Cmux" ]]; then
+        if ls "/Applications/cmux.app" &>/dev/null || command -v cmux &>/dev/null; then
+            check "$app — 已安装" "PASS"
+        else
+            check "$app — 未安装" "FAIL"
+        fi
+    else
+        ls "/Applications/${app}.app" &>/dev/null \
+            && check "$app — 已安装" "PASS" \
+            || check "$app — 未安装" "FAIL"
+    fi
 done
+
+# ── 4b. Cmux Socket Mode ─────────────────────────
+echo ""
+echo "【4b. Cmux Socket】"
+# Check both: binary on PATH (e.g. custom appdir) and app bundle at default location.
+# If either is present, we can read socketControlMode from defaults.
+if command -v cmux &>/dev/null || [[ -d "/Applications/cmux.app" ]]; then
+    socket_mode=$(defaults read com.cmuxterm.app socketControlMode 2>/dev/null || echo "")
+    if [[ "$socket_mode" == "automation" ]]; then
+        check "socketControlMode = automation" "PASS"
+    elif [[ -z "$socket_mode" ]]; then
+        check "socketControlMode 未设置（应为 automation）" "FAIL"
+    else
+        check "socketControlMode = $socket_mode（应为 automation）" "FAIL"
+    fi
+else
+    check "cmux 未安装（跳过 socket 检查）" "SKIP"
+fi
 
 # ── 5. 幂等标记（确认 bootstrap 成功） ───────────
 echo ""

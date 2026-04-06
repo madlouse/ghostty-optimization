@@ -24,7 +24,7 @@ NC='\033[0m'
 
 info()  { echo -e "${GREEN}[✓]${NC} $1"; }
 warn()  { echo -e "${YELLOW}[!]${NC} $1"; }
-error() { echo -e "${RED}[✗]${NC} $1"; }
+error() { echo -e "${RED}[✗]${NC} $1" || true; }
 step()  { echo -e "\n${CYAN}==>${NC} $1"; }
 skip()  { echo -e "${GREEN}[→]${NC} $1 (已一致，跳过)"; }
 
@@ -216,7 +216,62 @@ deploy_zshrc() {
 }
 
 # ============================================================
-# 4. 兼容性检查
+# 4. Cmux Socket 配置
+# ============================================================
+configure_cmux_socket() {
+    step "配置 Cmux Socket"
+
+    # 当前 socket mode — key off cmux binary (not /Applications path)
+    # so it works regardless of HOMEBREW_CASK_OPTS=--appdir setting.
+    # If cmux is absent, defaults read returns "" which naturally skips the write.
+    # bash 3.2 + set -u: "local var" (no initializer) leaves var truly unset,
+    # causing "unbound variable" even on ${var:-} — fix: initialize to ""
+    # bash 3.2 + set -u: "${var:-}" does NOT trigger (falls back safely),
+    # but bare $var in [[ ]] does — use ${var:-} in all conditionals.
+    local current_mode=""
+    if command -v defaults &>/dev/null; then
+        set +u
+        current_mode=$(defaults read com.cmuxterm.app socketControlMode 2>/dev/null || echo "")
+        set -u
+    fi
+    if [[ "${current_mode:-}" == "automation" ]]; then
+        info "cmux socketControlMode = automation ✓"
+    else
+        if [[ -n "${current_mode:-}" ]]; then
+            warn "cmux socketControlMode = ${current_mode:-}（应为 automation）"
+        else
+            warn "cmux socketControlMode 未设置"
+        fi
+        echo "   设置 socketControlMode = automation..."
+
+        if [[ "$DRY_RUN" == "true" ]]; then
+            echo "   [dry-run] 跳过写入 defaults"
+        else
+            if defaults write com.cmuxterm.app socketControlMode -string automation 2>/dev/null; then
+                info "socketControlMode 已设为 automation"
+            else
+                error "写入 socketControlMode 失败"
+                return 1
+            fi
+        fi
+    fi
+
+    # 冒烟测试：尝试 cmux ping（仅当非 dry-run 且 cmux CLI 存在时）
+    if [[ "$DRY_RUN" != "true" ]] && command -v cmux &>/dev/null; then
+        echo "   执行冒烟测试..."
+        if cmux ping 2>/dev/null; then
+            info "cmux ping 成功 ✓"
+        else
+            warn "cmux ping 失败（app 可能需要重启）"
+            echo "   请手动重启 Cmux："
+            echo "     osascript -e 'quit app \"cmux\"' && open -a cmux"
+        fi
+    fi
+    return 0
+}
+
+# ============================================================
+# 5. 兼容性检查
 # ============================================================
 check_compatibility() {
     step "兼容性检查"
@@ -295,6 +350,7 @@ main() {
     check_prerequisites
     install_via_brewfile
     deploy_all
+    configure_cmux_socket
     check_compatibility
     verify
 }

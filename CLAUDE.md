@@ -70,16 +70,19 @@ When you open this project in a new session, **immediately do the following**:
 ## Current State
 
 <!-- AGENT_CONTEXT_START -->
-**Last Updated**: 2026-04-02
+**Last Updated**: 2026-04-03
 
-**Current Task**: Issue #4 — 文档 + formula 修复（进行中）
+**Current Task**: Issue #10 — AGENTS.md 引用不存在的 AgenticOS 文件（进行中）
 
 **Active Items**:
-- bootstrap.sh 幂等性改造（已实现 diff 检查 + 标记文件）
-- 创建 `setup/verify.sh` 作为统一验证脚本
-- 更新 CLAUDE.md / AGENTS.md 文档引用关系
+- Issue #6: brew bundle 错误处理 → PR #12 已合并
+- Issue #10: AGENTS.md / CLAUDE.md 文档清理 → 进行中
+- Issue #9: bootstrap 配置 cmux socket automation mode → 待处理
+- Issue #7: Brewfile 拆分（core vs personal）→ 待处理
+- Issue #5: 可重现性（阻塞于 #7, #9, #10）
+- Issue #8: README vs bootstrap.sh 行为不符 → 待处理
 
-**Next Action**: 完成 verify.sh + 文档引用后提交
+**Next Action**: 完成 #10 后继续 #9
 <!-- AGENT_CONTEXT_END -->
 
 ---
@@ -88,12 +91,9 @@ When you open this project in a new session, **immediately do the following**:
 
 | 目录/文件 | 用途 |
 |-----------|------|
-| `.project.yaml` | 项目元信息 |
-| `.context/state.yaml` | 当前会话状态及工作记忆 |
-| `.context/conversations/` | 会话记录（自动生成） |
-| `knowledge/` | 持久化知识文档 |
-| `tasks/` | 任务追踪 |
-| `artifacts/` | 产出物 |
+| `.project.yaml` | 项目元信息（AgenticOS MCP 创建）|
+| `.context/state.yaml` | 当前会话状态（AgenticOS MCP 维护）|
+| `.context/conversations/` | 会话记录（AgenticOS MCP 创建）|
 | `setup/bootstrap.sh` | 幂等初始化脚本 |
 | `setup/verify.sh` | 统一验证 checklist（Canonical）|
 | `AGENTS.md` | Codex/Cursor Agent 安装指引 |
