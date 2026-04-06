@@ -221,14 +221,9 @@ deploy_zshrc() {
 configure_cmux_socket() {
     step "配置 Cmux Socket"
 
-    # 检查 cmux 是否已安装 — use binary detection (not /Applications path)
+    # 当前 socket mode — key off cmux binary (not /Applications path)
     # so it works regardless of HOMEBREW_CASK_OPTS=--appdir setting.
-    if ! command -v cmux &>/dev/null; then
-        skip "cmux 未安装，跳过 socket 配置"
-        return 0
-    fi
-
-    # 当前 socket mode
+    # If cmux is absent, defaults read returns "" which naturally skips the write.
     # bash 3.2 + set -u: "local var" (no initializer) leaves var truly unset,
     # causing "unbound variable" even on ${var:-} — fix: initialize to ""
     # bash 3.2 + set -u: "${var:-}" does NOT trigger (falls back safely),
@@ -245,6 +240,12 @@ configure_cmux_socket() {
         if [[ -n "${current_mode:-}" ]]; then
             warn "cmux socketControlMode = ${current_mode:-}（应为 automation）"
         else
+            # Real run with cmux absent: tell user it needs to be installed first.
+            # Dry-run: still show what WOULD happen after install.
+            if [[ "$DRY_RUN" != "true" ]] && ! command -v cmux &>/dev/null; then
+                skip "cmux 未安装，跳过 socket 配置"
+                return 0
+            fi
             warn "cmux socketControlMode 未设置"
         fi
         echo "   设置 socketControlMode = automation..."

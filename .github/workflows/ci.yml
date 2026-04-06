@@ -20,13 +20,6 @@ jobs:
       - name: Install bats-core
         run: brew install bats-core
 
-      - name: Install cmux (for socket tests)
-        run: |
-          brew tap manaflow-ai/cmux
-          brew install --cask manaflow-ai/cmux/cmux
-        # Cask installs to /Applications/cmux.app; verify it exists so tests 36-39 run
-        # instead of silently skipping when cmux is absent on a clean runner.
-
       - name: Run unit tests
         run: bats tests/bootstrap.bats
 
