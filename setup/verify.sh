@@ -134,7 +134,7 @@ done
 # ── 4b. Cmux Socket Mode ─────────────────────────
 echo ""
 echo "【4b. Cmux Socket】"
-if [[ -d "/Applications/cmux.app" ]]; then
+if command -v cmux &>/dev/null; then
     socket_mode=$(defaults read com.cmuxterm.app socketControlMode 2>/dev/null || echo "")
     if [[ "$socket_mode" == "automation" ]]; then
         check "socketControlMode = automation" "PASS"

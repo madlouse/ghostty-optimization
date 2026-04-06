@@ -496,30 +496,14 @@ MOCK_CMUX
 
 @test "configure_cmux_socket: cmux installed but defaults unset: no crash, sets automation" {
   # Key assertion: no unbound variable error (the original bug this fixed).
-  # Use _setup_cmux_socket_env to mock defaults/cmux so the test is hermetic
-  # and does not depend on the host machine having cmux installed.
+  # _setup_cmux_socket_env places mock cmux/defaults in $BATS_TEST_TMPDIR/bin
+  # and run_bootstrap_fn prepends that dir to PATH, so command -v cmux succeeds
+  # and the function enters its logic path without touching the host filesystem.
   _setup_cmux_socket_env
   # defaults state is empty (not set) — triggers "未设置" path
   echo "" > "$BATS_TEST_TMPDIR/.defaults_state"
 
-  # Patch bootstrap.sh in-place to use $BATS_TEST_TMPDIR/cmux.app instead of
-  # /Applications/cmux.app so we don't write to the host filesystem.
-  # /bin/cp and /bin/mkdir are available in the bash subprocess PATH.
-  run bash -c 'set +eu
-    cd "'"$BATS_TEST_TMPDIR"'"
-    BACKUP_DIR="'"$BATS_TEST_TMPDIR/backup"'"
-    BACKUP_USER="'"$BATS_TEST_TMPDIR/backup-user"'"
-    DRY_RUN=false
-    PATH="'"$BATS_TEST_TMPDIR/bin"':$PATH"
-    mkdir -p "'"$BATS_TEST_TMPDIR/cmux.app"'"
-    cp "'"$REPO_ROOT/setup/bootstrap.sh"'" bootstrap.sh.tmp \
-      && sed "s|/Applications/cmux.app|"$BATS_TEST_TMPDIR/cmux.app"|g" bootstrap.sh.tmp \
-         > bootstrap.sh.patched \
-      && mv bootstrap.sh.patched bootstrap.sh \
-      && rm bootstrap.sh.tmp
-    source bootstrap.sh
-    configure_cmux_socket
-  '
+  run_bootstrap_fn configure_cmux_socket
   [ "$status" -eq 0 ]
   # Must not crash with unbound variable
   [[ "$output" != *"unbound variable"* ]]
@@ -535,22 +519,7 @@ MOCK_CMUX
   # pre-set automation
   echo "automation" > "$BATS_TEST_TMPDIR/.defaults_state"
 
-  # Patch bootstrap.sh in $BATS_TEST_TMPDIR to redirect /Applications/cmux.app
-  # so this test doesn't depend on the host having cmux installed.
-  run bash -c 'set +eu
-    cd "'"$BATS_TEST_TMPDIR"'"
-    mkdir -p "'"$BATS_TEST_TMPDIR/cmux.app"'"
-    cp "'"$REPO_ROOT/setup/bootstrap.sh"'" bootstrap.sh.tmp \
-      && sed "s|/Applications/cmux.app|"$BATS_TEST_TMPDIR/cmux.app"|g" bootstrap.sh.tmp \
-         > bootstrap.sh.patched \
-      && mv bootstrap.sh.patched bootstrap.sh \
-      && rm bootstrap.sh.tmp
-    BACKUP_DIR="'"$BATS_TEST_TMPDIR/backup"'" \
-    BACKUP_USER="'"$BATS_TEST_TMPDIR/backup-user"'" \
-    DRY_RUN=false \
-    PATH="'"$BATS_TEST_TMPDIR/bin"':$PATH" \
-      bash -c "source bootstrap.sh && configure_cmux_socket"
-  '
+  run_bootstrap_fn configure_cmux_socket
   [ "$status" -eq 0 ]
   [[ "$output" == *"socketControlMode = automation"* ]]
   [[ "$output" == *"✓"* ]]
@@ -560,21 +529,7 @@ MOCK_CMUX
   _setup_cmux_socket_env
   # .defaults_state is empty (not set)
 
-  # Patch bootstrap.sh to redirect /Applications/cmux.app → $BATS_TEST_TMPDIR/cmux.app
-  run bash -c 'set +eu
-    cd "'"$BATS_TEST_TMPDIR"'"
-    mkdir -p "'"$BATS_TEST_TMPDIR/cmux.app"'"
-    cp "'"$REPO_ROOT/setup/bootstrap.sh"'" bootstrap.sh.tmp \
-      && sed "s|/Applications/cmux.app|"$BATS_TEST_TMPDIR/cmux.app"|g" bootstrap.sh.tmp \
-         > bootstrap.sh.patched \
-      && mv bootstrap.sh.patched bootstrap.sh \
-      && rm bootstrap.sh.tmp
-    BACKUP_DIR="'"$BATS_TEST_TMPDIR/backup"'" \
-    BACKUP_USER="'"$BATS_TEST_TMPDIR/backup-user"'" \
-    DRY_RUN=false \
-    PATH="'"$BATS_TEST_TMPDIR/bin"':$PATH" \
-      bash -c "source bootstrap.sh && configure_cmux_socket"
-  '
+  run_bootstrap_fn configure_cmux_socket
   [ "$status" -eq 0 ]
   [[ "$output" == *"socketControlMode 未设置"* ]]
   [[ "$output" == *"设为 automation"* ]]
@@ -585,21 +540,7 @@ MOCK_CMUX
   _setup_cmux_socket_env
   # .defaults_state is empty
 
-  # Patch bootstrap.sh to redirect /Applications/cmux.app → $BATS_TEST_TMPDIR/cmux.app
-  # DRY_RUN=true set AFTER source so bootstrap.sh's DRY_RUN=false is overwritten.
-  run bash -c 'set +eu
-    cd "'"$BATS_TEST_TMPDIR"'"
-    mkdir -p "'"$BATS_TEST_TMPDIR/cmux.app"'"
-    cp "'"$REPO_ROOT/setup/bootstrap.sh"'" bootstrap.sh.tmp \
-      && sed "s|/Applications/cmux.app|"$BATS_TEST_TMPDIR/cmux.app"|g" bootstrap.sh.tmp \
-         > bootstrap.sh.patched \
-      && mv bootstrap.sh.patched bootstrap.sh \
-      && rm bootstrap.sh.tmp
-    BACKUP_DIR="'"$BATS_TEST_TMPDIR/backup"'" \
-    BACKUP_USER="'"$BATS_TEST_TMPDIR/backup-user"'" \
-    PATH="'"$BATS_TEST_TMPDIR/bin"':$PATH" \
-      bash -c "set +eu; source bootstrap.sh && DRY_RUN=true configure_cmux_socket"
-  '
+  run_bootstrap_fn_dry configure_cmux_socket
 
   # .defaults_state should still be empty (dry-run doesn't write)
   [[ "$(cat "$BATS_TEST_TMPDIR/.defaults_state")" == "" ]]

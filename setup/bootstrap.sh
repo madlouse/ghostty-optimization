@@ -221,8 +221,9 @@ deploy_zshrc() {
 configure_cmux_socket() {
     step "配置 Cmux Socket"
 
-    # 检查 cmux 是否已安装
-    if [[ ! -d "/Applications/cmux.app" ]]; then
+    # 检查 cmux 是否已安装 — use binary detection (not /Applications path)
+    # so it works regardless of HOMEBREW_CASK_OPTS=--appdir setting.
+    if ! command -v cmux &>/dev/null; then
         skip "cmux 未安装，跳过 socket 配置"
         return 0
     fi
