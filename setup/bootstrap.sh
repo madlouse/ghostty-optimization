@@ -30,12 +30,29 @@ skip()  { echo -e "${GREEN}[→]${NC} $1 (已一致，跳过)"; }
 
 DRY_RUN=false
 FORCE=false
+BREWFILE_INSTALL_STATUS="pending"
+VERIFY_STATUS="pending"
 for arg in "$@"; do
     case "$arg" in
         --dry-run) DRY_RUN=true; warn "预览模式，不会实际修改" && echo "" ;;
         --force)   FORCE=true ;;
     esac
 done
+
+emit_summary() {
+    local status="$1" stage="$2" message="$3"
+
+    echo ""
+    echo "BOOTSTRAP_SUMMARY_BEGIN"
+    printf 'status=%s\n' "$status"
+    printf 'stage=%s\n' "$stage"
+    printf 'dry_run=%s\n' "$DRY_RUN"
+    printf 'force=%s\n' "$FORCE"
+    printf 'brewfile_status=%s\n' "$BREWFILE_INSTALL_STATUS"
+    printf 'verify_status=%s\n' "$VERIFY_STATUS"
+    printf 'message=%q\n' "$message"
+    echo "BOOTSTRAP_SUMMARY_END"
+}
 
 # ============================================================
 # 1. 前置检查
@@ -45,7 +62,7 @@ check_prerequisites() {
 
     if [[ "$(uname)" != "Darwin" ]]; then
         error "此脚本仅支持 macOS"
-        exit 1
+        return 1
     fi
 
     if ! command -v brew &>/dev/null; then
@@ -68,11 +85,11 @@ check_prerequisites() {
     # 检查备份文件是否存在
     if [[ ! -f "$BACKUP_DIR/Brewfile" ]]; then
         error "Brewfile 不存在: $BACKUP_DIR/Brewfile"
-        exit 1
+        return 1
     fi
     if [[ ! -f "$BACKUP_DIR/ghostty-config" ]]; then
         error "ghostty-config 不存在: $BACKUP_DIR/ghostty-config"
-        exit 1
+        return 1
     fi
 }
 
@@ -83,6 +100,7 @@ install_via_brewfile() {
     step "安装工具 (通过 Brewfile)"
 
     if $DRY_RUN; then
+        BREWFILE_INSTALL_STATUS="skipped"
         warn "[dry-run] 将安装: brew bundle install --file=$BACKUP_DIR/Brewfile"
         return
     fi
@@ -92,12 +110,15 @@ install_via_brewfile() {
         brew tap manaflow-ai/cmux
     fi
 
-    # brew bundle install 本身幂等：已装过的包跳过
-    if brew bundle install --file="$BACKUP_DIR/Brewfile" --no-lock 2>&1 | tail -20; then
-        info "Brewfile 安装完成"
-    else
-        warn "部分包安装失败，继续部署配置..."
+    # 保留完整日志；若安装失败则中止后续部署，避免制造“伪成功”。
+    if ! brew bundle install --file="$BACKUP_DIR/Brewfile"; then
+        BREWFILE_INSTALL_STATUS="failed"
+        error "Brewfile 安装失败，停止后续部署"
+        return 1
     fi
+
+    BREWFILE_INSTALL_STATUS="installed"
+    info "Brewfile 安装完成"
 }
 
 # ============================================================
@@ -261,6 +282,7 @@ verify() {
 
     echo ""
     if $all_ok; then
+        VERIFY_STATUS="pass"
         echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
         info "全部就绪！重启终端后开始使用"
         echo ""
@@ -275,6 +297,8 @@ verify() {
         echo "  轻量独立模式:"
         echo "    open -a Ghostty"
         echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    else
+        VERIFY_STATUS="warn"
     fi
 }
 
@@ -292,11 +316,36 @@ main() {
     echo "  --force    强制重新部署所有文件（忽略一致性检查）"
     echo ""
 
-    check_prerequisites
-    install_via_brewfile
-    deploy_all
-    check_compatibility
-    verify
+    if ! check_prerequisites; then
+        emit_summary "failed" "check_prerequisites" "前置条件检查失败"
+        return 1
+    fi
+
+    if ! install_via_brewfile; then
+        emit_summary "failed" "brewfile_install" "Brewfile 安装失败"
+        return 1
+    fi
+
+    if ! deploy_all; then
+        emit_summary "failed" "deploy" "配置部署失败"
+        return 1
+    fi
+
+    if ! check_compatibility; then
+        emit_summary "failed" "compatibility" "兼容性检查失败"
+        return 1
+    fi
+
+    if ! verify; then
+        emit_summary "failed" "verify" "安装验证失败"
+        return 1
+    fi
+
+    if [[ "$VERIFY_STATUS" == "pass" ]]; then
+        emit_summary "success" "completed" "Bootstrap 完成"
+    else
+        emit_summary "warning" "completed" "Bootstrap 完成，但存在验证警告"
+    fi
 }
 
 # Only invoke main when executed directly (not when sourced for unit tests)

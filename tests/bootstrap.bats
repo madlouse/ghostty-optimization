@@ -118,13 +118,54 @@ _source() {
   [[ "$output" == *"Brewfile"* ]]
 }
 
-@test "brewfile: brew bundle failure warns and continues" {
+@test "brewfile: install does not use deprecated no-lock flag" {
+  export BREW_TEST_LOG="$BATS_TEST_TMPDIR/brew.log"
+  : > "$BREW_TEST_LOG"
+  cat > "$BATS_TEST_TMPDIR/bin/brew" << 'MOCK'
+#!/usr/bin/env bash
+{
+  printf '%q ' "$@"
+  printf '\n'
+} >> "${BREW_TEST_LOG:?}"
+case "$1" in
+  --version) echo "Homebrew 5.1.3" ;;
+  tap)
+    if [[ $# -eq 1 ]]; then
+      echo "manaflow-ai/cmux"
+    else
+      exit 0
+    fi
+    ;;
+  bundle) exit 0 ;;
+  *)      exit 0 ;;
+esac
+MOCK
+  chmod +x "$BATS_TEST_TMPDIR/bin/brew"
+  run bash -c "
+    PATH='$BATS_TEST_TMPDIR/bin:$PATH'
+    export BREW_TEST_LOG='$BREW_TEST_LOG'
+    $(_source)
+    install_via_brewfile
+  "
+  [ "$status" -eq 0 ]
+  run grep -- '--no-lock' "$BREW_TEST_LOG"
+  [ "$status" -ne 0 ]
+}
+
+@test "brewfile: brew bundle failure exits non-zero and reports fatal error" {
   cat > "$BATS_TEST_TMPDIR/bin/brew" << 'MOCK'
 #!/usr/bin/env bash
 case "$1" in
-  tap)    exit 0 ;;
+  --version) echo "Homebrew 5.1.3" ;;
+  tap)
+    if [[ $# -eq 1 ]]; then
+      echo "manaflow-ai/cmux"
+    else
+      exit 0
+    fi
+    ;;
   bundle) echo "some error"; exit 1 ;;
-  *)      exit 0 ;;
+  *) exit 0 ;;
 esac
 MOCK
   chmod +x "$BATS_TEST_TMPDIR/bin/brew"
@@ -133,7 +174,9 @@ MOCK
     $(_source)
     install_via_brewfile
   "
-  [[ "$output" == *"失败"* ]] || [[ "$output" == *"failed"* ]] || [[ "$output" == *"部分"* ]]
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"some error"* ]]
+  [[ "$output" == *"安装失败"* ]]
 }
 
 # ===========================================================
@@ -452,6 +495,8 @@ MOCK
   local after
   after="$(find "$HOME" -type f | sort)"
   [ "$before" = "$after" ]
+  [[ "$output" == *"BOOTSTRAP_SUMMARY_BEGIN"* ]]
+  [[ "$output" == *"status=warning"* || "$output" == *"status=success"* ]]
 }
 
 @test "e2e: bootstrap writes all managed files into isolated HOME" {
@@ -469,6 +514,8 @@ MOCK
     bash '$REPO_ROOT/setup/bootstrap.sh'
   "
   [ "$status" -eq 0 ]
+  [[ "$output" == *"BOOTSTRAP_SUMMARY_BEGIN"* ]]
+  [[ "$output" == *"status=success"* ]]
 
   [ -f "$HOME/.config/ghostty/config" ]
   [ -f "$HOME/.config/starship.toml" ]
@@ -478,6 +525,44 @@ MOCK
   [ -f "$HOME/.env.local" ]
   [ -f "$HOME/.zshrc.local" ]
   [ -f "$HOME/.config/.ghostty-opt-deployed" ]
+}
+
+@test "e2e: brew bundle failure aborts before deployment and prints failure summary" {
+  cat > "$BATS_TEST_TMPDIR/bin/brew" << 'MOCK'
+#!/usr/bin/env bash
+case "$1" in
+  --version) echo "Homebrew 5.1.3" ;;
+  tap)
+    if [[ $# -eq 1 ]]; then
+      echo "manaflow-ai/cmux"
+    else
+      exit 0
+    fi
+    ;;
+  bundle)
+    echo "Error: invalid option: --no-lock" >&2
+    exit 1
+    ;;
+  *)
+    exit 0
+    ;;
+esac
+MOCK
+  chmod +x "$BATS_TEST_TMPDIR/bin/brew"
+
+  run bash -c "
+    PATH='$BATS_TEST_TMPDIR/bin:$PATH'
+    HOME='$HOME'
+    bash '$REPO_ROOT/setup/bootstrap.sh'
+  "
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"invalid option: --no-lock"* ]]
+  [[ "$output" == *"BOOTSTRAP_SUMMARY_BEGIN"* ]]
+  [[ "$output" == *"status=failed"* ]]
+  [[ "$output" == *"stage=brewfile_install"* ]]
+  [[ "$output" != *"全部就绪"* ]]
+  [ ! -f "$HOME/.zshrc" ]
+  [ ! -f "$HOME/.config/.ghostty-opt-deployed" ]
 }
 
 @test "e2e: deployed zshrc loads helpers and routes helper commands inside isolated shell" {
