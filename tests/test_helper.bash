@@ -68,8 +68,8 @@ mock_cmux_helper_cli() {
 #!/usr/bin/env bash
 set -euo pipefail
 
-log_file="${CMUX_TEST_LOG:?}"
-if [[ $# -gt 0 ]]; then
+log_file="${CMUX_TEST_LOG:-}"
+if [[ -n "$log_file" && $# -gt 0 ]]; then
   {
     printf '%q ' "$@"
     printf '\n'
@@ -77,6 +77,19 @@ if [[ $# -gt 0 ]]; then
 fi
 
 case "${1:-}" in
+  ping)
+    echo "PONG"
+    ;;
+  list-workspaces)
+    cat <<'EOF'
+* workspace:1  demo
+EOF
+    ;;
+  new-workspace)
+    echo "workspace:99"
+    ;;
+  close-workspace)
+    ;;
   identify)
     cat <<'EOF'
 {

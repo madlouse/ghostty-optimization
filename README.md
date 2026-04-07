@@ -103,6 +103,7 @@ Ctrl+`                    # Quick Terminal (全局呼出)
 | 工具 | 配置路径 | 来源 | 部署方式 |
 |------|----------|------|----------|
 | Ghostty / Cmux | `~/.config/ghostty/config` | `setup/backup/ghostty-config` | 覆盖（旧版备份至 `~/.config-backup/`）|
+| Cmux Automation | `~/.config/cmux/settings.json` | bootstrap 动态生成 | 写入 `automation.socketControlMode = automation` |
 | Starship | `~/.config/starship.toml` | `setup/backup/starship.toml` | 覆盖（旧版备份）|
 | Zed | `~/.config/zed/settings.json` | `setup/backup/zed/settings.json` | 覆盖（旧版备份）|
 | Shell | `~/.zshrc` | `setup/backup/zshrc` | **全量覆盖**（旧版备份至 `~/.config-backup/`）|
@@ -110,6 +111,8 @@ Ctrl+`                    # Quick Terminal (全局呼出)
 | 本机专属 | `~/.zshrc.local` | `setup/backup/zshrc.local.example` | 仅首次创建，不覆盖 |
 
 > ⚠️ **注意**: `.zshrc` 采用全量覆盖，安装前请将自定义内容迁移到 `~/.zshrc.local`。
+>
+> `cw / cc / cb` 依赖 Cmux socket automation。`bootstrap.sh` 会写入 `~/.config/cmux/settings.json`，将 `automation.socketControlMode` 设为 `automation`，这样外部 shell 才能稳定调用 `cmux ping`、`cmux new-workspace` 等 CLI。
 
 ## 更新配置
 
@@ -137,6 +140,11 @@ Homebrew formula 只负责发放 bootstrap / sync 入口；最新配置通过 `g
 ```bash
 bash setup/verify.sh
 ```
+
+`verify.sh` 现在会同时检查：
+- `~/.config/cmux/settings.json` 是否把 `socketControlMode` 设为 `automation`
+- `cmux ping` 是否可用
+- 外部 shell 是否能成功跑一次可清理的 `cmux new-workspace` smoke test
 
 验证结果：✓ = 通过 / ✗ = 失败 / → = 跳过（正常）
 

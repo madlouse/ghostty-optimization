@@ -54,6 +54,233 @@ emit_summary() {
     echo "BOOTSTRAP_SUMMARY_END"
 }
 
+cmux_settings_file() {
+    printf '%s\n' "${XDG_CONFIG_HOME:-$HOME/.config}/cmux/settings.json"
+}
+
+update_cmux_settings_file() {
+    local settings_file
+    settings_file="$(cmux_settings_file)"
+    SETTINGS_FILE="$settings_file" python3 <<'PY'
+import json
+import os
+import pathlib
+import sys
+
+path = pathlib.Path(os.environ["SETTINGS_FILE"])
+path.parent.mkdir(parents=True, exist_ok=True)
+
+def strip_comments(text: str) -> str:
+    result = []
+    in_string = False
+    escape = False
+    line_comment = False
+    block_comment = False
+    i = 0
+    while i < len(text):
+        ch = text[i]
+        nxt = text[i + 1] if i + 1 < len(text) else ""
+
+        if line_comment:
+            if ch == "\n":
+                line_comment = False
+                result.append(ch)
+            i += 1
+            continue
+
+        if block_comment:
+            if ch == "*" and nxt == "/":
+                block_comment = False
+                i += 2
+                continue
+            i += 1
+            continue
+
+        if in_string:
+            result.append(ch)
+            if escape:
+                escape = False
+            elif ch == "\\":
+                escape = True
+            elif ch == '"':
+                in_string = False
+            i += 1
+            continue
+
+        if ch == "/" and nxt == "/":
+            line_comment = True
+            i += 2
+            continue
+
+        if ch == "/" and nxt == "*":
+            block_comment = True
+            i += 2
+            continue
+
+        result.append(ch)
+        if ch == '"':
+            in_string = True
+        i += 1
+
+    return "".join(result)
+
+def strip_trailing_commas(text: str) -> str:
+    result = []
+    in_string = False
+    escape = False
+    i = 0
+    while i < len(text):
+        ch = text[i]
+
+        if in_string:
+            result.append(ch)
+            if escape:
+                escape = False
+            elif ch == "\\":
+                escape = True
+            elif ch == '"':
+                in_string = False
+            i += 1
+            continue
+
+        if ch == '"':
+            in_string = True
+            result.append(ch)
+            i += 1
+            continue
+
+        if ch == ",":
+            j = i + 1
+            while j < len(text) and text[j] in " \t\r\n":
+                j += 1
+            if j < len(text) and text[j] in "}]":
+                i += 1
+                continue
+
+        result.append(ch)
+        i += 1
+
+    return "".join(result)
+
+data = {}
+if path.exists():
+    raw = path.read_text(encoding="utf-8")
+    normalized = strip_trailing_commas(strip_comments(raw)).strip()
+    if normalized:
+        try:
+            data = json.loads(normalized)
+        except json.JSONDecodeError as exc:
+            sys.stderr.write(
+                f"cmux settings file is not mergeable JSON/JSONC: {path} ({exc})\n"
+            )
+            sys.exit(1)
+
+if not isinstance(data, dict):
+    sys.stderr.write(f"cmux settings file root must be an object: {path}\n")
+    sys.exit(1)
+
+data.setdefault(
+    "$schema",
+    "https://raw.githubusercontent.com/manaflow-ai/cmux/main/web/data/cmux-settings.schema.json",
+)
+data.setdefault("schemaVersion", 1)
+automation = data.setdefault("automation", {})
+if not isinstance(automation, dict):
+    sys.stderr.write(f"cmux automation settings must be an object: {path}\n")
+    sys.exit(1)
+automation["socketControlMode"] = "automation"
+
+path.write_text(json.dumps(data, indent=2, ensure_ascii=True) + "\n", encoding="utf-8")
+PY
+}
+
+cmux_workspace_refs() {
+    cmux list-workspaces 2>/dev/null | grep -oE 'workspace:[0-9]+' || true
+}
+
+smoke_test_cmux_workspace_creation() {
+    local before_refs after_refs create_output new_ref smoke_cwd
+
+    smoke_cwd="${TMPDIR:-/tmp}"
+    before_refs="$(cmux_workspace_refs | sort -u)"
+    create_output="$(cmux new-workspace --cwd "$smoke_cwd" 2>&1)" || {
+        printf '%s\n' "$create_output" >&2
+        return 1
+    }
+
+    after_refs="$(cmux_workspace_refs | sort -u)"
+    new_ref="$(printf '%s\n' "$create_output" | grep -oE 'workspace:[0-9]+' | tail -n 1 || true)"
+    if [[ -z "$new_ref" ]]; then
+        new_ref="$(comm -13 <(printf '%s\n' "$before_refs") <(printf '%s\n' "$after_refs") | head -n 1 || true)"
+    fi
+
+    if [[ -n "$new_ref" ]]; then
+        cmux close-workspace --workspace "$new_ref" >/dev/null 2>&1 || warn "未能自动关闭 smoke workspace: $new_ref"
+    fi
+
+    info "cmux new-workspace ✓"
+}
+
+ensure_cmux_socket_ready() {
+    local attempt
+
+    if cmux ping >/dev/null 2>&1; then
+        info "cmux ping ✓"
+        return 0
+    fi
+
+    if command -v open &>/dev/null; then
+        open -a Cmux >/dev/null 2>&1 || true
+    fi
+
+    for attempt in 1 2 3 4 5 6 7 8 9 10; do
+        if cmux ping >/dev/null 2>&1; then
+            info "cmux ping ✓"
+            return 0
+        fi
+        sleep 1
+    done
+
+    return 1
+}
+
+configure_cmux_automation() {
+    step "配置 Cmux automation mode"
+    local settings_file
+    settings_file="$(cmux_settings_file)"
+
+    if $DRY_RUN; then
+        warn "[dry-run] 将确保 $settings_file 中 automation.socketControlMode=automation"
+        return 0
+    fi
+
+    if ! command -v python3 &>/dev/null; then
+        error "缺少 python3，无法写入 $settings_file"
+        return 1
+    fi
+
+    if ! update_cmux_settings_file; then
+        error "无法更新 Cmux settings: $settings_file"
+        return 1
+    fi
+    info "Cmux automation mode 已写入 $settings_file"
+
+    if ! command -v cmux &>/dev/null; then
+        error "cmux CLI 未找到，无法验证 automation mode"
+        return 1
+    fi
+
+    if ! ensure_cmux_socket_ready; then
+        error "cmux ping 失败；请确认 Cmux 已启动并读取新的 automation 配置"
+        return 1
+    fi
+
+    if ! smoke_test_cmux_workspace_creation; then
+        error "cmux workspace 创建 smoke test 失败"
+        return 1
+    fi
+}
+
 # ============================================================
 # 1. 前置检查
 # ============================================================
@@ -261,6 +488,9 @@ verify() {
     step "验证安装"
 
     local all_ok=true
+    local cmux_mode=""
+    local settings_file
+    settings_file="$(cmux_settings_file)"
     for app in "cmux:Cmux" "ghostty:Ghostty" "zed:Zed"; do
         local cmd="${app%%:*}" name="${app##*:}"
         if ls "/Applications/${name}.app" &>/dev/null 2>&1 || command -v "$cmd" &>/dev/null; then
@@ -279,6 +509,35 @@ verify() {
             all_ok=false
         fi
     done
+
+    if [[ -f "$settings_file" ]]; then
+        cmux_mode="$(SETTINGS_FILE="$settings_file" python3 <<'PY'
+import json
+import os
+import pathlib
+
+path = pathlib.Path(os.environ["SETTINGS_FILE"])
+data = json.loads(path.read_text(encoding="utf-8"))
+print(data.get("automation", {}).get("socketControlMode", ""))
+PY
+)" || cmux_mode=""
+        if [[ "$cmux_mode" == "automation" ]]; then
+            info "Cmux automation mode ✓"
+        else
+            warn "Cmux automation mode 未设置为 automation"
+            all_ok=false
+        fi
+    else
+        warn "Cmux settings.json 未创建: $settings_file"
+        all_ok=false
+    fi
+
+    if command -v cmux &>/dev/null && cmux ping >/dev/null 2>&1; then
+        info "cmux ping ✓"
+    else
+        warn "cmux ping 失败"
+        all_ok=false
+    fi
 
     echo ""
     if $all_ok; then
@@ -328,6 +587,11 @@ main() {
 
     if ! deploy_all; then
         emit_summary "failed" "deploy" "配置部署失败"
+        return 1
+    fi
+
+    if ! configure_cmux_automation; then
+        emit_summary "failed" "cmux_automation" "Cmux automation mode 配置失败"
         return 1
     fi
 

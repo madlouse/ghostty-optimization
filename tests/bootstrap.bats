@@ -180,7 +180,40 @@ MOCK
 }
 
 # ===========================================================
-# 3. backup_if_exists
+# 3. cmux automation
+# ===========================================================
+
+@test "cmux automation: writes settings.json with automation mode and preserves existing keys" {
+  mkdir -p "$HOME/.config/cmux"
+  cat > "$HOME/.config/cmux/settings.json" <<'EOF'
+{
+  "app": {
+    "appearance": "dark"
+  }
+}
+EOF
+  mock_cmux_helper_cli
+  run bash -c "
+    PATH='$BATS_TEST_TMPDIR/bin:$PATH'
+    HOME='$HOME'
+    $(_source)
+    configure_cmux_automation
+  "
+  [ "$status" -eq 0 ]
+  run python3 - <<PY
+import json
+from pathlib import Path
+path = Path(r"$HOME/.config/cmux/settings.json")
+data = json.loads(path.read_text())
+assert data["app"]["appearance"] == "dark"
+assert data["automation"]["socketControlMode"] == "automation"
+assert data["schemaVersion"] == 1
+PY
+  [ "$status" -eq 0 ]
+}
+
+# ===========================================================
+# 4. backup_if_exists
 # ===========================================================
 
 @test "backup_if_exists: creates backup when file exists" {
@@ -202,7 +235,7 @@ MOCK
 }
 
 # ===========================================================
-# 4. Config file deployments
+# 5. Config file deployments
 # ===========================================================
 
 @test "ghostty: deploys when target absent" {
@@ -280,7 +313,7 @@ MOCK
 }
 
 # ===========================================================
-# 5. deploy_zshrc
+# 6. deploy_zshrc
 # ===========================================================
 
 @test "deploy_zshrc: deploys full zshrc to HOME" {
@@ -314,7 +347,7 @@ MOCK
 }
 
 # ===========================================================
-# 6. .env.local
+# 7. .env.local
 # ===========================================================
 
 @test "env.local: creates from example when absent" {
@@ -353,7 +386,7 @@ MOCK
 }
 
 # ===========================================================
-# 7. .zshrc.local
+# 8. .zshrc.local
 # ===========================================================
 
 @test "zshrc.local: creates from example when absent" {
@@ -391,7 +424,7 @@ MOCK
 }
 
 # ===========================================================
-# 8. check_compatibility
+# 9. check_compatibility
 # ===========================================================
 
 @test "compatibility: warns when copy-on-select=clipboard found" {
@@ -423,7 +456,7 @@ MOCK
 }
 
 # ===========================================================
-# 9. verify
+# 10. verify
 # ===========================================================
 
 @test "verify: missing tools warn but do not hard-exit" {
@@ -439,6 +472,16 @@ MOCK
 }
 
 @test "verify: present tools report success" {
+  mkdir -p "$HOME/.config/cmux"
+  cat > "$HOME/.config/cmux/settings.json" <<'EOF'
+{
+  "schemaVersion": 1,
+  "automation": {
+    "socketControlMode": "automation"
+  }
+}
+EOF
+  mock_cmux_helper_cli
   mock_command "starship"  "exit 0"
   mock_command "fastfetch" "exit 0"
   mock_command "btop"      "exit 0"
@@ -448,10 +491,12 @@ MOCK
     verify
   "
   [ "$status" -eq 0 ]
+  [[ "$output" == *"Cmux automation mode"* ]]
+  [[ "$output" == *"cmux ping"* ]]
 }
 
 # ===========================================================
-# 10. Homebrew path detection
+# 11. Homebrew path detection
 # ===========================================================
 
 @test "brew detection: Apple Silicon path check logic" {
@@ -477,7 +522,7 @@ MOCK
 }
 
 # ===========================================================
-# 11. End-to-end dry-run
+# 12. End-to-end dry-run
 # ===========================================================
 
 @test "e2e: --dry-run leaves HOME untouched" {
@@ -525,6 +570,14 @@ MOCK
   [ -f "$HOME/.env.local" ]
   [ -f "$HOME/.zshrc.local" ]
   [ -f "$HOME/.config/.ghostty-opt-deployed" ]
+  [ -f "$HOME/.config/cmux/settings.json" ]
+  run python3 - <<PY
+import json
+from pathlib import Path
+data = json.loads(Path(r"$HOME/.config/cmux/settings.json").read_text())
+assert data["automation"]["socketControlMode"] == "automation"
+PY
+  [ "$status" -eq 0 ]
 }
 
 @test "e2e: brew bundle failure aborts before deployment and prints failure summary" {
