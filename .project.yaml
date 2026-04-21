@@ -1,0 +1,5 @@
+---
+name: ghostty-optimization
+description: Ghostty + Cmux + Zed AI 多协作编程终端栈 — 配置备份、跨机器恢复，性能优化
+version: "1.2.0"
+---
