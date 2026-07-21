@@ -7,7 +7,7 @@
 **症状**：
 ```
 Ghostty failed to launch the requested command:
-/usr/bin/login -flp jeking exit
+/usr/bin/login -flp <username> exit
 ```
 
 **原因**：Ghostty 保存了错误的窗口状态
