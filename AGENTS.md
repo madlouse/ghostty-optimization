@@ -1,52 +1,27 @@
 # AGENTS.md — ghostty-optimization
 
-## Recording Protocol (MANDATORY)
-
-This project uses AgenticOS for persistent context management.
-All session activity MUST be recorded via MCP tools.
-
-### How to Record
-
-Call the MCP tool `agenticos_record` with:
-- `summary` (required): What happened in this session
-- `decisions`: Key decisions made
-- `outcomes`: What was accomplished
-- `pending`: What remains to be done
-- `current_task`: { title, status } to update current task
-
-### When to Record
-
-1. After completing any meaningful unit of work
-2. Before ending the session (MANDATORY — context is lost otherwise)
-
-After recording, call `agenticos_save` to commit to Git.
-
-### Session Start
-
-On session start, read these files for context:
-1. `.project.yaml` — Project metadata
-2. `.context/state.yaml` — Current state and working memory
-3. `.context/conversations/` — Previous session records
-
-Then greet the user with: project name, last progress, current pending items, suggested next step.
-
 ## Project
 
 **Name**: ghostty-optimization
-**Description**: Ghostty + Cmux + Zed AI 多协作编程终端栈 — 配置备份、跨机器恢复、性能优化
+**Description**: Ghostty + Cmux + Zed AI 多协作编程终端栈 — 配置备份、跨机器恢复，性能优化
+
+## Agent Entry Points
+
+- **Human guide**: [README.md](./README.md)
+- **Canonical verification**: `bash setup/verify.sh`
+- **Agent entry**: [CLAUDE.md](./CLAUDE.md) — includes AgenticOS session workflow and memory system
 
 ## Directory Structure
 
 | Path | Purpose |
 |------|---------|
-| `.project.yaml` | Project metadata |
-| `.context/state.yaml` | Session state and working memory |
-| `.context/conversations/` | Session records (auto-generated) |
-| `knowledge/` | Persistent knowledge documents |
-| `tasks/` | Task tracking |
-| `artifacts/` | Outputs and deliverables |
+| `CLAUDE.md` | Agent 主入口，包含会话工作流 |
+| `.project.yaml` | 项目元信息（AgenticOS MCP 创建）|
+| `.context/state.yaml` | 当前状态（AgenticOS MCP 维护）|
+| `.context/conversations/` | 会话记录（AgenticOS MCP 创建）|
 | `setup/bootstrap.sh` | 新机器初始化脚本 |
 | `setup/backup/` | 当前机器真实配置备份 |
+| `setup/verify.sh` | 安装后验证 checklist |
 | `tests/bootstrap.bats` | 单元测试（bats-core）|
 
 ---
@@ -55,7 +30,7 @@ Then greet the user with: project name, last progress, current pending items, su
 
 ### 完整安装 Guide
 
-> **Canonical source**: [README.md](./README.md) — 新机器安装步骤、维护文档
+> **Canonical source**: [README.md](./README.md) — 新机器安装步骤，维护文档
 > **Canonical checklist**: `bash setup/verify.sh` — 安装后验证（所有 Agent 通用）
 
 ### Quick Install (copy-paste ready)

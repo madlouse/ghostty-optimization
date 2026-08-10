@@ -1,0 +1,42 @@
+# AgenticOS project state
+# Auto-managed by agenticos_record tool
+
+project: ghostty-optimization
+last_updated: "2026-04-03"
+
+current_task:
+  title: "Issue #10: AGENTS.md cleanup — remove false AgenticOS file references"
+  status: "in_progress"
+
+active_issues:
+  - number: 10
+    title: "docs/ops: AGENTS.md references missing AgenticOS files"
+    status: "in_progress"
+  - number: 9
+    title: "feat: bootstrap should configure cmux socket automation mode"
+    status: "pending"
+  - number: 7
+    title: "design: split portable core install from personal Brewfile"
+    status: "pending"
+  - number: 5
+    title: "meta: make ghostty-optimization reproducible"
+    status: "pending"
+  - number: 8
+    title: "docs: README vs bootstrap.sh overwrite behavior mismatch"
+    status: "pending"
+
+completed_issues:
+  - number: 6
+    title: "bug: bootstrap.sh brew bundle error handling"
+    status: "merged"
+  - number: 4
+    title: "docs+formula: Agent 驱动安装一致性"
+    status: "merged"
+  - number: 2
+    title: "feat: 配置文件 validate + GitHub Actions CI"
+    status: "merged"
+  - number: 1
+    title: "feat: bootstrap.sh 单元测试"
+    status: "merged"
+
+pending: []
